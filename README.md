@@ -60,15 +60,15 @@ Automatically detects and processes logs from Claude Code, Codex, Copilot, and G
 
 ## ✨ Key Features
 
-| Feature | Description |
-| --- | --- |
-| 🤖 **Multi-Provider** | Claude Code, Codex, Copilot, and Gemini — all in one place |
-| 💵 **Smart Pricing** | Fuzzy model matching + daily cache from LiteLLM |
-| 🎨 **4 Display Modes** | Interactive TUI, static table, plain text, and JSON |
-| 📈 **Dual Analysis** | Token/cost stats (`usage`) + code operation stats (`analysis`) |
-| 🪶 **Ultra-Lightweight** | ~3-5% CPU, ~140 MB RAM — built with Rust |
-| 🔄 **Live Updates** | Real-time dashboard refreshes every second |
-| 💾 **Efficient Caching** | Smart daily cache reduces API calls |
+| Feature                  | Description                                                    |
+| ------------------------ | -------------------------------------------------------------- |
+| 🤖 **Multi-Provider**    | Claude Code, Codex, Copilot, and Gemini — all in one place     |
+| 💵 **Smart Pricing**     | Fuzzy model matching + daily cache from LiteLLM                |
+| 🎨 **4 Display Modes**   | Interactive TUI, static table, plain text, and JSON            |
+| 📈 **Dual Analysis**     | Token/cost stats (`usage`) + code operation stats (`analysis`) |
+| 🪶 **Ultra-Lightweight** | ~3-5% CPU, ~140 MB RAM — built with Rust                       |
+| 🔄 **Live Updates**      | Real-time dashboard refreshes every second                     |
+| 💾 **Efficient Caching** | Smart daily cache reduces API calls                            |
 
 ---
 
