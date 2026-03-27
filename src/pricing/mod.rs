@@ -40,7 +40,6 @@ pub fn fetch_model_pricing() -> Result<ModelPricingMap> {
     // Fetch from remote
     log::info!("Fetching model pricing from remote...");
     let client = reqwest::blocking::Client::builder()
-        .danger_accept_invalid_certs(true)
         .build()
         .context("Failed to create HTTP client")?;
 
