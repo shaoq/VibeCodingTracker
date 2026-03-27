@@ -256,9 +256,9 @@ docker build -f docker/Dockerfile --target prod -t vibe_coding_tracker:latest .
 
 # 使用您的會話執行
 docker run --rm \
-	-v ~/.claude:/root/.claude \
-	-v ~/.codex:/root/.codex \
-	-v ~/.copilot:/root/.copilot \
-	-v ~/.gemini:/root/.gemini \
-	vibe_coding_tracker:latest usage
+    -v ~/.claude:/root/.claude \
+    -v ~/.codex:/root/.codex \
+    -v ~/.copilot:/root/.copilot \
+    -v ~/.gemini:/root/.gemini \
+    vibe_coding_tracker:latest usage
 ```
