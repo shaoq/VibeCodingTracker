@@ -1,17 +1,17 @@
 {
   "extensionName": "Gemini",
-  "insightsVersion": "0.5.5-5-gbcec23f-dirty",
+  "insightsVersion": "0.5.9-23-g533007e-dirty",
   "machineId": "18f309cbbb654be69eff5ff79d2f3fa6",
   "records": [
     {
       "conversationUsage": {
-        "gemini-2.5-pro": {
-          "cache_read_input_tokens": 121305,
-          "input_tokens": 176179,
-          "output_tokens": 851,
-          "thoughts_tokens": 1546,
+        "gemini-3.1-pro-preview-customtools": {
+          "cache_read_input_tokens": 39826,
+          "input_tokens": 76348,
+          "output_tokens": 9325,
+          "thoughts_tokens": 11616,
           "tool_tokens": 0,
-          "total_tokens": 178576
+          "total_tokens": 97289
         }
       },
       "editFileDetails": [],
@@ -19,8 +19,8 @@
       "gitRemoteUrl": "https://github.com/Mai0313/VibeCodingTracker",
       "readFileDetails": [],
       "runCommandDetails": [],
-      "taskId": "2d9ea14f-1e4e-44f6-8bf5-7a7819cb1cd9",
-      "timestamp": 1760187723227,
+      "taskId": "8a20078e-2d5e-4f81-a640-9b879bbb7e6d",
+      "timestamp": 1774606920021,
       "toolCallCounts": {
         "Bash": 0,
         "Edit": 0,

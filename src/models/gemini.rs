@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 /// Complete Gemini coding session with metadata and message history
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,11 +20,35 @@ pub struct GeminiMessage {
     pub timestamp: String,
     #[serde(rename = "type")]
     pub message_type: String,
+    #[serde(deserialize_with = "deserialize_content")]
     pub content: String,
     #[serde(default)]
     pub thoughts: Vec<GeminiThought>,
     pub tokens: Option<GeminiTokens>,
     pub model: Option<String>,
+    #[serde(default)]
+    pub tool_calls: Vec<Value>,
+}
+
+/// Deserialize content that can be either a string or an array of {text: "..."} objects
+fn deserialize_content<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Array(arr) => {
+            // Extract text from [{text: "..."}, ...] format
+            let texts: Vec<&str> = arr
+                .iter()
+                .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                .collect();
+            Ok(texts.join("\n"))
+        }
+        Value::Null => Ok(String::new()),
+        _ => Ok(value.to_string()),
+    }
 }
 
 /// AI reasoning step captured during Gemini's thought process
