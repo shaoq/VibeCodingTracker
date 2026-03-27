@@ -88,13 +88,6 @@ repos:
           # - mdformat-tables  # deprecated, use mdformat-gfm
           # - mdformat-wikilink  # wikilinks
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
-    hooks:
-      - id: codespell
-        additional_dependencies:
-          - tomli
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:
