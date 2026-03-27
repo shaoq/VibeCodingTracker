@@ -17,7 +17,7 @@
 
 </div>
 
-**Track your AI coding costs in real-time.** Vibe Coding Tracker is a powerful CLI tool that helps you monitor and analyze your Claude Code, Codex, Copilot, and Gemini usage, providing detailed cost breakdowns, token statistics, and code operation insights.
+**Track your AI coding costs in real-time.** Vibe Coding Tracker is a lightweight, high-performance CLI tool built in Rust that monitors and analyzes your Claude Code, Codex, Copilot, and Gemini usage — with detailed cost breakdowns, token statistics, and code operation insights, all while keeping CPU and memory usage minimal.
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
@@ -31,6 +31,10 @@
 
 Stop wondering how much your AI coding sessions cost. Get **real-time cost tracking** with automatic pricing updates from [LiteLLM](https://github.com/BerriAI/litellm).
 
+### 🪶 Ultra-Lightweight
+
+Built with Rust for minimal resource footprint. The interactive TUI dashboard runs at **~3-5% CPU** and **~140 MB memory** even while processing millions of tokens across multiple providers — no Electron, no bloated runtimes.
+
 ### 📊 Beautiful Visualizations
 
 Choose your preferred view:
@@ -42,29 +46,29 @@ Choose your preferred view:
 
 ### 🚀 Zero Configuration
 
-Automatically detects and processes logs from Claude Code, Codex, Copilot, and Gemini. No setup required—just run and analyze.
+Automatically detects and processes logs from Claude Code, Codex, Copilot, and Gemini. No setup required — just run and analyze.
 
 ### 🎨 Rich Insights
 
 - Token usage by model and date
-- Cost breakdown by cache types
-- File operations tracking
-- Command execution history
-- Git repository information
+- Cost breakdown by cache types (read / create)
+- File operations tracking (edit, read, write lines)
+- Tool call history (Bash, Edit, Read, Write, TodoWrite)
+- Per-provider daily averages
 
 ---
 
 ## ✨ Key Features
 
-| Feature                    | Description                                                          |
-| -------------------------- | -------------------------------------------------------------------- |
-| 🤖 **Auto-Detection**      | Intelligently identifies Claude Code, Codex, Copilot, or Gemini logs |
-| 💵 **Smart Pricing**       | Fuzzy model matching + daily cache for speed                         |
-| 🎨 **4 Display Modes**     | Interactive, Table, Text, and JSON outputs                           |
-| 📈 **Comprehensive Stats** | Tokens, costs, file ops, and tool calls                              |
-| ⚡ **High Performance**    | Built with Rust for speed and reliability                            |
-| 🔄 **Live Updates**        | Real-time dashboard refreshes every second                           |
-| 💾 **Efficient Caching**   | Smart daily cache reduces API calls                                  |
+| Feature | Description |
+| --- | --- |
+| 🤖 **Multi-Provider** | Claude Code, Codex, Copilot, and Gemini — all in one place |
+| 💵 **Smart Pricing** | Fuzzy model matching + daily cache from LiteLLM |
+| 🎨 **4 Display Modes** | Interactive TUI, static table, plain text, and JSON |
+| 📈 **Dual Analysis** | Token/cost stats (`usage`) + code operation stats (`analysis`) |
+| 🪶 **Ultra-Lightweight** | ~3-5% CPU, ~140 MB RAM — built with Rust |
+| 🔄 **Live Updates** | Real-time dashboard refreshes every second |
+| 💾 **Efficient Caching** | Smart daily cache reduces API calls |
 
 ---
 
@@ -114,14 +118,14 @@ cargo install vibe_coding_tracker
 ### First Run
 
 ```bash
-# View your usage with the short alias (if available)
+# View your usage with the interactive dashboard
 vct usage
 
 # Or run the binary built by Cargo/pip
 vibe_coding_tracker usage
 
-# Analyze a specific conversation
-vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
+# Analyze code operations across all sessions
+vct analysis
 ```
 
 ---
@@ -130,16 +134,16 @@ vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
 
 ### 🔍 Quick Reference
 
-```bash
+```
 vct <COMMAND> [OPTIONS]
 # Replace with `vibe_coding_tracker` if you are using the full binary name
 
 Commands:
-analysis    Analyze JSONL conversation files (single file or all sessions)
-usage       Display token usage statistics
-version     Display version information
-update      Update to the latest version from GitHub releases
-help        Print this message or the help of the given subcommand(s)
+  analysis    Analyze JSONL conversation files (single file or all sessions)
+  usage       Display token usage statistics
+  version     Display version information
+  update      Update to the latest version from GitHub releases
+  help        Print this message or the help of the given subcommand(s)
 ```
 
 ---
@@ -164,9 +168,36 @@ vct usage --text
 vct usage --json
 ```
 
-### What You Get
+### Preview: Interactive Dashboard (`vct usage`)
 
-The tool scans these directories automatically:
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    📊 Token Usage Statistics                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Model                              Input     Output    Cache Read  Cache Create  Total Cost │
+│                                                                                             │
+│ claude-haiku-4-5-20251001          5,567     19,769    4,627,938   619,816       $1.34      │
+│ claude-opus-4-6                    25,651    179,066   40,830,154  2,572,258     $77.59     │
+│ gemini-3.1-pro-preview             129,115   10,339    67,385      0             $0.40      │
+│ TOTAL                              160,333   209,174   45,525,477  3,192,074     $79.33     │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Provider              Tokens / Day     Cost / Day     Active Days                           │
+│                                                                                             │
+│ 🤖 Claude Code        16,293,406       $26.31         3                                    │
+│ ✨ Gemini             206,839          $0.40          1                                     │
+│ ⭐ All Providers      16,362,353       $26.44         3                                    │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│   💰 Total: $79.33 | 🔢 Tokens: 49,087,058 | 📊 Models: 3 | ⚡ CPU: 4.6% | 🧠 Mem: 148 MB │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                          Press 'q', 'Esc', 'Ctrl+C' to quit | Press 'r' to refresh
+```
+
+### What It Scans
+
+The tool automatically scans these directories:
 
 - `~/.claude/projects/*.jsonl` (Claude Code)
 - `~/.codex/sessions/*.jsonl` (Codex)
@@ -177,31 +208,55 @@ The tool scans these directories automatically:
 
 ## 📊 Analysis Command
 
-**Deep dive into conversation files - single file or batch analysis.**
+**Deep dive into code operations — see exactly what your AI assistant did.**
 
 ### Basic Usage
 
 ```bash
-# Single file: Analyze and display
-vct analysis --path ~/.claude/projects/session.jsonl
-
-# Single file: Save to file
-vct analysis --path ~/.claude/projects/session.jsonl --output report.json
-
-# Batch: Analyze all sessions with interactive table (default)
+# Interactive dashboard for all sessions (default)
 vct analysis
 
-# Batch: Static table output with daily averages
+# Static table output with daily averages
 vct analysis --table
 
-# Batch: Save aggregated results to JSON
-vct analysis --output batch_report.json
+# Analyze a single conversation file
+vct analysis --path ~/.claude/projects/session.jsonl
 
-# Batch with provider grouping: Output complete records grouped by provider (JSON format)
+# Save results to JSON
+vct analysis --output report.json
+
+# Group results by provider
 vct analysis --all
 
-# Save the grouped results to a file
+# Save grouped results
 vct analysis --all --output grouped_report.json
+```
+
+### Preview: Interactive Dashboard (`vct analysis`)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    🔍 Analysis Statistics                                   │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Model                        Edit Lines  Read Lines  Write Lines  Bash  Edit  Read  Write  │
+│                                                                                             │
+│ claude-haiku-4-5-20251001    0           0           0            43    0     59    0       │
+│ claude-opus-4-6              1,280       13,264      1,575        82    146   209   62      │
+│ gemini-3.1-pro-preview       0           0           0            0     0     0     0       │
+│ TOTAL                        1,280       13,264      1,575        125   146   268   62      │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Provider          EditL/Day ReadL/Day WriteL/Day Bash/Day Edit/Day Read/Day Write/Day Days  │
+│                                                                                             │
+│ 🤖 Claude Code    426.7     4421.3    525.0      41.7     48.7     89.3     20.7      3    │
+│ ✨ Gemini         0         0         0          0.0      0.0      0.0      0.0       1    │
+│ ⭐ All Providers  426.7     4421.3    525.0      41.7     48.7     89.3     20.7      3    │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│  📝 Lines: 16,119 | 🔧 Tools: 601 | 📊 Models: 3 | ⚡ CPU: 3.6% | 🧠 Mem: 140 MB         │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                          Press 'q', 'Esc', 'Ctrl+C' to quit | Press 'r' to refresh
 ```
 
 ---
@@ -221,8 +276,16 @@ vct update --check
 # Interactive update with confirmation
 vct update
 
-# Force update - always downloads latest version (even if already up-to-date)
+# Force update — always downloads latest version
 vct update --force
+```
+
+### Preview (`vct update --check`)
+
+```
+📋 Current version: v0.5.10
+🔍 Checking for latest release...
+✅ Latest version: v0.5.10 — you are up to date!
 ```
 
 ---

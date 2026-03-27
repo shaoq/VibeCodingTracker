@@ -17,54 +17,58 @@
 
 </div>
 
-**即時追蹤您的 AI 程式設計成本。** Vibe Coding Tracker 是一個強大的 CLI 工具，幫助您監控和分析 Claude Code、Codex、Copilot 和 Gemini 的使用情況，提供詳細的成本分解、token 統計和程式碼操作洞察。
+**即時追蹤你的 AI 程式設計花費。** Vibe Coding Tracker 是一款以 Rust 打造的輕量、高效能 CLI 工具，能監控與分析你在 Claude Code、Codex、Copilot 及 Gemini 的使用狀況——提供詳細的費用明細、token 統計資料與程式碼操作分析，同時維持極低的 CPU 與記憶體使用量。
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
-> 注意：以下 CLI 範例預設使用短別名 `vct`。若您透過 npm/pip/cargo 安裝，產生的二進位檔名稱可能為 `vibe_coding_tracker` 或 `vct`，可以自行建立別名，或在執行指令時將 `vct` 換成完整名稱。
+> 注意：CLI 範例使用簡短別名 `vct`。如果你是透過 npm/pip/cargo 安裝，執行檔可能命名為 `vibe_coding_tracker` 或 `vct`。如有需要，請建立別名或在執行指令時將 `vct` 替換為完整名稱。
 
 ---
 
 ## 🎯 為什麼選擇 Vibe Coding Tracker？
 
-### 💰 了解您的成本
+### 💰 掌握你的花費
 
-不再疑惑您的 AI 程式設計會話花費多少。透過 [LiteLLM](https://github.com/BerriAI/litellm) 自動更新定價，獲取**即時成本追蹤**。
+不用再猜測 AI 程式設計工作階段花了多少錢。透過 [LiteLLM](https://github.com/BerriAI/litellm) 自動更新價格，取得**即時費用追蹤**。
 
-### 📊 精美的視覺化
+### 🪶 超輕量
 
-選擇您偏好的檢視：
+以 Rust 打造，資源佔用極低。互動式 TUI 儀表板僅需 **~3-5% CPU** 與 **~140 MB 記憶體**，即使處理來自多個供應商的數百萬 token 也不例外——不用 Electron，不用臃腫的執行環境。
 
-- **互動式儀表板**：自動重新整理的終端 UI，即時更新
-- **靜態報表**：專業的表格，適合文件
-- **指令碼友善**：純文字和 JSON，便於自動化
-- **完整精度**：匯出精確成本，用於財務核算
+### 📊 精美視覺化
+
+選擇你偏好的檢視方式：
+
+- **互動式儀表板**：自動更新的終端機 UI，即時顯示最新資訊
+- **靜態報表**：專業的表格格式，適合撰寫文件
+- **腳本友好**：純文字及 JSON 輸出，方便自動化處理
+- **完整精度**：匯出精確費用供會計使用
 
 ### 🚀 零設定
 
-自動偵測並處理 Claude Code、Codex、Copilot 和 Gemini 的日誌。無需設定——只需執行和分析。
+自動偵測並處理 Claude Code、Codex、Copilot 及 Gemini 的日誌檔。不需要任何設定——直接執行就能分析。
 
-### 🎨 豐富的洞察
+### 🎨 豐富洞察
 
-- 按模型和日期的 token 使用量
-- 按快取類型的成本分解
-- 檔案操作追蹤
-- 命令執行歷史
-- Git 儲存庫資訊
+- 依模型與日期分類的 token 使用量
+- 依 cache 類型（讀取 / 建立）的費用明細
+- 檔案操作追蹤（編輯、讀取、寫入行數）
+- 工具呼叫歷史（Bash、Edit、Read、Write、TodoWrite）
+- 每個供應商的每日平均值
 
 ---
 
-## ✨ 核心特性
+## ✨ 主要功能
 
-| 特性                | 描述                                                |
-| ------------------- | --------------------------------------------------- |
-| 🤖 **自動偵測**     | 智慧識別 Claude Code、Codex、Copilot 或 Gemini 日誌 |
-| 💵 **智慧定價**     | 模糊模型匹配 + 每日快取以提高速度                   |
-| 🎨 **4 種顯示模式** | 互動式、表格、文字和 JSON 輸出                      |
-| 📈 **全面統計**     | Token、成本、檔案操作和工具呼叫                     |
-| ⚡ **高效能**       | 使用 Rust 建置，速度快且可靠                        |
-| 🔄 **即時更新**     | 儀表板每秒重新整理                                  |
-| 💾 **高效快取**     | 智慧的每日快取減少 API 呼叫                         |
+| 功能 | 說明 |
+| --- | --- |
+| 🤖 **多供應商支援** | Claude Code、Codex、Copilot 及 Gemini——一站整合 |
+| 💵 **智慧定價** | 模糊模型比對 + 每日從 LiteLLM cache 更新 |
+| 🎨 **4 種顯示模式** | 互動式 TUI、靜態表格、純文字及 JSON |
+| 📈 **雙重分析** | Token / 費用統計（`usage`）+ 程式碼操作統計（`analysis`） |
+| 🪶 **超輕量** | ~3-5% CPU、~140 MB RAM——以 Rust 打造 |
+| 🔄 **即時更新** | 即時儀表板每秒自動刷新 |
+| 💾 **高效快取** | 智慧每日 cache 減少 API 呼叫次數 |
 
 ---
 
@@ -72,40 +76,40 @@
 
 ### 安裝
 
-選擇最適合您的安裝方式：
+選擇最適合你的安裝方式：
 
-> 👨‍💻 **開發者**：如果您想從原始碼建置或貢獻開發，請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
+> 👨‍💻 **開發者**：如果你想從原始碼建置或參與開發，請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-#### 方式 1: 從 npm 安裝
+#### 方法一：透過 npm 安裝
 
-**前置條件**: [Node.js](https://nodejs.org/) v22 或更高版本
+**前置條件**：[Node.js](https://nodejs.org/) v22 或更高版本
 
-選擇以下任一套件名稱（三者完全相同）：
+選擇以下任一套件名稱（內容完全相同）：
 
 ```bash
-# 主要套件
+# Main package
 npm install -g vibe-coding-tracker
 
-# 帶 scope 的短別名
+# Short alias with scope
 npm install -g @mai0313/vct
 
-# 帶 scope 的完整名稱
+# Full name with scope
 npm install -g @mai0313/vibe-coding-tracker
 ```
 
-#### 方式 2: 從 PyPI 安裝
+#### 方法二：透過 PyPI 安裝
 
-**前置條件**: Python 3.8 或更高版本
+**前置條件**：Python 3.8 或更高版本
 
 ```bash
 pip install vibe_coding_tracker
-# 或使用 uv
+# Or with uv
 uv pip install vibe_coding_tracker
 ```
 
-#### 方式 3: 從 crates.io 安裝
+#### 方法三：透過 crates.io 安裝
 
-使用 Cargo 從 Rust 官方套件庫安裝：
+使用 Cargo 從官方 Rust 套件倉庫安裝：
 
 ```bash
 cargo install vibe_coding_tracker
@@ -114,59 +118,86 @@ cargo install vibe_coding_tracker
 ### 首次執行
 
 ```bash
-# 使用互動式儀表板檢視使用量（已設定短別名時）
+# View your usage with the interactive dashboard
 vct usage
 
-# 或使用完整名稱
+# Or run the binary built by Cargo/pip
 vibe_coding_tracker usage
 
-# 分析特定對話
-vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
+# Analyze code operations across all sessions
+vct analysis
 ```
 
 ---
 
-## 📖 命令指南
+## 📖 指令指南
 
 ### 🔍 快速參考
 
-```bash
-vct <命令 >[選項]
-# 若未設定別名，請改用 `vibe_coding_tracker`完整二進位名稱
+```
+vct <COMMAND> [OPTIONS]
+# Replace with `vibe_coding_tracker` if you are using the full binary name
 
-命令：
-analysis 分析對話檔案並匯出資料（支援單檔案或所有會話）
-usage 顯示 token 使用量統計
-version 顯示版本資訊
-update 從 GitHub releases 更新到最新版本
-help 顯示此訊息或給定子命令的說明
+Commands:
+  analysis    Analyze JSONL conversation files (single file or all sessions)
+  usage       Display token usage statistics
+  version     Display version information
+  update      Update to the latest version from GitHub releases
+  help        Print this message or the help of the given subcommand(s)
 ```
 
 ---
 
-## 💰 Usage 命令
+## 💰 Usage 指令
 
-**追蹤您所有 AI 程式設計會話的支出。**
+**追蹤你在所有 AI 程式設計工作階段的花費。**
 
 ### 基本用法
 
 ```bash
-# 互動式儀表板（推薦）
+# Interactive dashboard (recommended)
 vct usage
 
-# 靜態表格，適合報表
+# Static table for reports
 vct usage --table
 
-# 純文字，適合指令碼
+# Plain text for scripts
 vct usage --text
 
-# JSON，適合資料處理
+# JSON for data processing
 vct usage --json
 ```
 
-### 您將獲得什麼
+### 預覽：互動式儀表板（`vct usage`）
 
-該工具自動掃描這些目錄：
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    📊 Token Usage Statistics                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Model                              Input     Output    Cache Read  Cache Create  Total Cost │
+│                                                                                             │
+│ claude-haiku-4-5-20251001          5,567     19,769    4,627,938   619,816       $1.34      │
+│ claude-opus-4-6                    25,651    179,066   40,830,154  2,572,258     $77.59     │
+│ gemini-3.1-pro-preview             129,115   10,339    67,385      0             $0.40      │
+│ TOTAL                              160,333   209,174   45,525,477  3,192,074     $79.33     │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Provider              Tokens / Day     Cost / Day     Active Days                           │
+│                                                                                             │
+│ 🤖 Claude Code        16,293,406       $26.31         3                                    │
+│ ✨ Gemini             206,839          $0.40          1                                     │
+│ ⭐ All Providers      16,362,353       $26.44         3                                    │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│   💰 Total: $79.33 | 🔢 Tokens: 49,087,058 | 📊 Models: 3 | ⚡ CPU: 4.6% | 🧠 Mem: 148 MB │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                          Press 'q', 'Esc', 'Ctrl+C' to quit | Press 'r' to refresh
+```
+
+### 掃描範圍
+
+此工具會自動掃描以下目錄：
 
 - `~/.claude/projects/*.jsonl`（Claude Code）
 - `~/.codex/sessions/*.jsonl`（Codex）
@@ -175,86 +206,118 @@ vct usage --json
 
 ---
 
-## 📊 Analysis 命令
+## 📊 Analysis 指令
 
-**深入了解對話檔案 - 單檔案或批次分析。**
+**深入分析程式碼操作——精確掌握你的 AI 助手做了哪些事。**
 
 ### 基本用法
 
 ```bash
-# 單檔案：分析並顯示
-vct analysis --path ~/.claude/projects/session.jsonl
-
-# 單檔案：儲存到檔案
-vct analysis --path ~/.claude/projects/session.jsonl --output report.json
-
-# 批次：使用互動式表格分析所有會話（預設）
+# Interactive dashboard for all sessions (default)
 vct analysis
 
-# 批次：靜態表格輸出並顯示每日平均
+# Static table output with daily averages
 vct analysis --table
 
-# 批次：將彙總結果儲存為 JSON
-vct analysis --output batch_report.json
+# Analyze a single conversation file
+vct analysis --path ~/.claude/projects/session.jsonl
 
-# 批次並依提供者分組：輸出完整的 records，依提供者分組（JSON 格式）
+# Save results to JSON
+vct analysis --output report.json
+
+# Group results by provider
 vct analysis --all
 
-# 將分組結果儲存到檔案
+# Save grouped results
 vct analysis --all --output grouped_report.json
+```
+
+### 預覽：互動式儀表板（`vct analysis`）
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    🔍 Analysis Statistics                                   │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Model                        Edit Lines  Read Lines  Write Lines  Bash  Edit  Read  Write  │
+│                                                                                             │
+│ claude-haiku-4-5-20251001    0           0           0            43    0     59    0       │
+│ claude-opus-4-6              1,280       13,264      1,575        82    146   209   62      │
+│ gemini-3.1-pro-preview       0           0           0            0     0     0     0       │
+│ TOTAL                        1,280       13,264      1,575        125   146   268   62      │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Provider          EditL/Day ReadL/Day WriteL/Day Bash/Day Edit/Day Read/Day Write/Day Days  │
+│                                                                                             │
+│ 🤖 Claude Code    426.7     4421.3    525.0      41.7     48.7     89.3     20.7      3    │
+│ ✨ Gemini         0         0         0          0.0      0.0      0.0      0.0       1    │
+│ ⭐ All Providers  426.7     4421.3    525.0      41.7     48.7     89.3     20.7      3    │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│  📝 Lines: 16,119 | 🔧 Tools: 601 | 📊 Models: 3 | ⚡ CPU: 3.6% | 🧠 Mem: 140 MB         │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                          Press 'q', 'Esc', 'Ctrl+C' to quit | Press 'r' to refresh
 ```
 
 ---
 
-## 🔄 Update 命令
+## 🔄 Update 指令
 
-**自動保持安裝版本為最新。**
+**自動保持安裝為最新版本。**
 
-update 命令適用於**所有安裝方式**（npm/pip/cargo/manual），直接從 GitHub releases 下載並替換二進位檔。
+Update 指令適用於**所有安裝方式**（npm/pip/cargo/手動安裝），透過直接從 GitHub releases 下載並替換執行檔來完成更新。
 
 ### 基本用法
 
 ```bash
-# 檢查更新
+# Check for updates
 vct update --check
 
-# 互動式更新（會詢問確認）
+# Interactive update with confirmation
 vct update
 
-# 強制更新 - 總是下載最新版本（即使已是最新版本）
+# Force update — always downloads latest version
 vct update --force
+```
+
+### 預覽（`vct update --check`）
+
+```
+📋 Current version: v0.5.10
+🔍 Checking for latest release...
+✅ Latest version: v0.5.10 — you are up to date!
 ```
 
 ---
 
 ## 💡 智慧定價系統
 
-### 運作原理
+### 運作方式
 
-1. **自動更新**：每天從 [LiteLLM](https://github.com/BerriAI/litellm) 取得定價
-2. **智慧快取**：在 `~/.vibe_coding_tracker/` 中儲存定價 24 小時
-3. **模糊匹配**：即使對於自訂模型名稱也能找到最佳匹配
-4. **始終準確**：確保您取得最新的定價
+1. **自動更新**：每日從 [LiteLLM](https://github.com/BerriAI/litellm) 取得最新價格
+2. **智慧快取**：將價格資料儲存於 `~/.vibe_coding_tracker/`，有效期 24 小時
+3. **模糊比對**：即使是自訂模型名稱也能找到最佳配對
+4. **始終精準**：確保你取得最新的定價資訊
 
-### 模型匹配
+### 模型比對
 
 **優先順序**：
 
-1. ✅ **精確匹配**：`claude-sonnet-4` → `claude-sonnet-4`
-2. 🔄 **規範化**：`claude-sonnet-4-20250514` → `claude-sonnet-4`
-3. 🔍 **子字串**：`custom-gpt-4` → `gpt-4`
-4. 🎯 **模糊（AI 驅動）**：使用 Jaro-Winkler 相似度（70% 閾值）
-5. 💵 **後備**：如果找不到匹配則顯示 $0.00
+1. ✅ **完全比對**：`claude-sonnet-4` → `claude-sonnet-4`
+2. 🔄 **正規化比對**：`claude-sonnet-4-20250514` → `claude-sonnet-4`
+3. 🔍 **子字串比對**：`custom-gpt-4` → `gpt-4`
+4. 🎯 **模糊比對（AI 驅動）**：使用 Jaro-Winkler 相似度（70% 門檻值）
+5. 💵 **備援方案**：若無法配對則顯示 $0.00
 
 ---
 
 ## 🐳 Docker 支援
 
 ```bash
-# 建置映像
+# Build image
 docker build -f docker/Dockerfile --target prod -t vibe_coding_tracker:latest .
 
-# 使用您的會話執行
+# Run with your sessions
 docker run --rm \
     -v ~/.claude:/root/.claude \
     -v ~/.codex:/root/.codex \
