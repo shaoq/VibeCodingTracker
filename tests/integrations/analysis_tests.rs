@@ -401,7 +401,7 @@ fn test_analysis_aggregation_logic() {
     // Test that analysis properly aggregates data
     use vibe_coding_tracker::analysis::batch_analyzer::AggregatedAnalysisRow;
 
-    let rows = vec![
+    let rows = [
         AggregatedAnalysisRow {
             date: "2025-10-11".to_string(),
             model: "claude-sonnet-4".to_string(),
