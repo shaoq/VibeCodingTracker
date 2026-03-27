@@ -209,9 +209,14 @@ fn test_calculate_cost_large_numbers() {
         output_cost_per_token: 0.000002,
         cache_read_input_token_cost: 0.0000001,
         cache_creation_input_token_cost: 0.0000005,
-        ..Default::default()
+        // Simulate normalize_pricing(): above_200k fields fallback to base prices
+        input_cost_per_token_above_200k_tokens: 0.000001,
+        output_cost_per_token_above_200k_tokens: 0.000002,
+        cache_read_input_token_cost_above_200k_tokens: 0.0000001,
+        cache_creation_input_token_cost_above_200k_tokens: 0.0000005,
     };
 
+    // Total input context = 1M + 100K + 50K = 1.15M > 200K → above_200k prices
     let cost = calculate_cost(1_000_000, 500_000, 100_000, 50_000, &pricing);
     assert!(cost > 0.0);
     assert!(cost.is_finite());

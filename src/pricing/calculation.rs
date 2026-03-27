@@ -4,9 +4,9 @@ const TOKEN_THRESHOLD: i64 = 200_000;
 
 /// Calculates total cost based on token usage and model pricing
 ///
-/// Each token type (input, output, cache_read, cache_creation) is evaluated independently
-/// against the 200K threshold. If a type exceeds 200K tokens, the corresponding above_200k
-/// price is used; otherwise, the base price applies.
+/// The 200K threshold is based on total input context (input + cache_read + cache_creation).
+/// When total input context exceeds 200K, above_200k prices apply to ALL token types,
+/// matching Anthropic's pricing model where prompt length determines the pricing tier.
 pub fn calculate_cost(
     input_tokens: i64,
     output_tokens: i64,
@@ -14,37 +14,30 @@ pub fn calculate_cost(
     cache_creation_tokens: i64,
     pricing: &ModelPricing,
 ) -> f64 {
-    // Helper function to get the appropriate price based on token count
-    // Note: above_200k prices are already normalized to base prices if not provided
-    let get_price = |tokens: i64, base_price: f64, above_200k_price: f64| -> f64 {
-        if tokens > TOKEN_THRESHOLD {
-            above_200k_price
-        } else {
-            base_price
-        }
-    };
+    // The 200K threshold is about total input context per request
+    let total_input_context = input_tokens + cache_read_tokens + cache_creation_tokens;
+    let is_above_threshold = total_input_context > TOKEN_THRESHOLD;
 
-    // Calculate costs for each token type with appropriate pricing
-    let input_price = get_price(
-        input_tokens,
-        pricing.input_cost_per_token,
-        pricing.input_cost_per_token_above_200k_tokens,
-    );
-    let output_price = get_price(
-        output_tokens,
-        pricing.output_cost_per_token,
-        pricing.output_cost_per_token_above_200k_tokens,
-    );
-    let cache_read_price = get_price(
-        cache_read_tokens,
-        pricing.cache_read_input_token_cost,
-        pricing.cache_read_input_token_cost_above_200k_tokens,
-    );
-    let cache_creation_price = get_price(
-        cache_creation_tokens,
-        pricing.cache_creation_input_token_cost,
-        pricing.cache_creation_input_token_cost_above_200k_tokens,
-    );
+    let input_price = if is_above_threshold {
+        pricing.input_cost_per_token_above_200k_tokens
+    } else {
+        pricing.input_cost_per_token
+    };
+    let output_price = if is_above_threshold {
+        pricing.output_cost_per_token_above_200k_tokens
+    } else {
+        pricing.output_cost_per_token
+    };
+    let cache_read_price = if is_above_threshold {
+        pricing.cache_read_input_token_cost_above_200k_tokens
+    } else {
+        pricing.cache_read_input_token_cost
+    };
+    let cache_creation_price = if is_above_threshold {
+        pricing.cache_creation_input_token_cost_above_200k_tokens
+    } else {
+        pricing.cache_creation_input_token_cost
+    };
 
     let input_cost = input_tokens as f64 * input_price;
     let output_cost = output_tokens as f64 * output_price;
@@ -59,7 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_calculate_cost() {
+    fn test_calculate_cost_below_threshold() {
         let pricing = ModelPricing {
             input_cost_per_token: 0.000001,
             output_cost_per_token: 0.000002,
@@ -71,69 +64,78 @@ mod tests {
             cache_creation_input_token_cost_above_200k_tokens: 0.000001,
         };
 
-        // Test with tokens below 200K threshold - all use base price
+        // Total input context = 1000 + 200 + 100 = 1300 < 200K → base prices
         let cost = calculate_cost(1000, 500, 200, 100, &pricing);
-        assert_eq!(cost, 0.001_000 + 0.001_000 + 0.000_020 + 0.000_050);
-
-        // Test with ALL tokens above 200K threshold (should use above_200k pricing)
-        let cost_above = calculate_cost(250_000, 250_000, 250_000, 250_000, &pricing);
-        let expected = 250_000.0 * 0.000002  // input with above_200k price
-            + 250_000.0 * 0.000004           // output with above_200k price
-            + 250_000.0 * 0.0000002          // cache_read with above_200k price
-            + 250_000.0 * 0.000001; // cache_creation with above_200k price
-        assert_eq!(cost_above, expected);
+        let expected = 1000.0 * 0.000001 + 500.0 * 0.000002 + 200.0 * 0.0000001 + 100.0 * 0.0000005;
+        assert_eq!(cost, expected);
     }
 
     #[test]
-    fn test_calculate_cost_mixed_threshold() {
-        // Test: Each token type is checked INDEPENDENTLY against 200K
+    fn test_calculate_cost_above_threshold() {
         let pricing = ModelPricing {
-            input_cost_per_token: 0.000003,              // base: $3 per million
-            output_cost_per_token: 0.000015,             // base: $15 per million
-            cache_read_input_token_cost: 0.0000003,      // base: $0.3 per million
-            cache_creation_input_token_cost: 0.00000375, // base: $3.75 per million
-            input_cost_per_token_above_200k_tokens: 0.000006, // above: $6 per million (2x)
-            output_cost_per_token_above_200k_tokens: 0.0000225, // above: $22.5 per million (1.5x)
-            cache_read_input_token_cost_above_200k_tokens: 0.0000006, // above: $0.6 per million (2x)
-            cache_creation_input_token_cost_above_200k_tokens: 0.0000075, // above: $7.5 per million (2x)
+            input_cost_per_token: 0.000001,
+            output_cost_per_token: 0.000002,
+            cache_read_input_token_cost: 0.0000001,
+            cache_creation_input_token_cost: 0.0000005,
+            input_cost_per_token_above_200k_tokens: 0.000002,
+            output_cost_per_token_above_200k_tokens: 0.000004,
+            cache_read_input_token_cost_above_200k_tokens: 0.0000002,
+            cache_creation_input_token_cost_above_200k_tokens: 0.000001,
         };
 
-        // Case 1: Only input_tokens exceeds 200K
-        let cost1 = calculate_cost(250_000, 100_000, 150_000, 50_000, &pricing);
-        let expected1 = 250_000.0 * 0.000006      // input: above_200k
-            + 100_000.0 * 0.000015                // output: base
-            + 150_000.0 * 0.0000003               // cache_read: base
-            + 50_000.0 * 0.00000375; // cache_creation: base
+        // Total input context = 250K + 250K + 250K = 750K > 200K → above_200k prices for ALL
+        let cost = calculate_cost(250_000, 250_000, 250_000, 250_000, &pricing);
+        let expected = 250_000.0 * 0.000002   // input: above_200k
+            + 250_000.0 * 0.000004            // output: above_200k (determined by input context)
+            + 250_000.0 * 0.0000002           // cache_read: above_200k
+            + 250_000.0 * 0.000001; // cache_creation: above_200k
+        assert_eq!(cost, expected);
+    }
+
+    #[test]
+    fn test_calculate_cost_context_threshold() {
+        // The 200K threshold is about total input context, not individual token types
+        let pricing = ModelPricing {
+            input_cost_per_token: 0.000003,
+            output_cost_per_token: 0.000015,
+            cache_read_input_token_cost: 0.0000003,
+            cache_creation_input_token_cost: 0.00000375,
+            input_cost_per_token_above_200k_tokens: 0.000006,
+            output_cost_per_token_above_200k_tokens: 0.0000225,
+            cache_read_input_token_cost_above_200k_tokens: 0.0000006,
+            cache_creation_input_token_cost_above_200k_tokens: 0.0000075,
+        };
+
+        // Case 1: No single type > 200K, but total input context > 200K
+        // input=100K + cache_read=80K + cache_creation=30K = 210K > 200K → above_200k
+        let cost1 = calculate_cost(100_000, 50_000, 80_000, 30_000, &pricing);
+        let expected1 = 100_000.0 * 0.000006      // above_200k
+            + 50_000.0 * 0.0000225                 // above_200k (output also affected)
+            + 80_000.0 * 0.0000006                 // above_200k
+            + 30_000.0 * 0.0000075; // above_200k
         assert_eq!(cost1, expected1);
 
-        // Case 2: Only output_tokens exceeds 200K
-        let cost2 = calculate_cost(100_000, 250_000, 150_000, 50_000, &pricing);
-        let expected2 = 100_000.0 * 0.000003      // input: base
-            + 250_000.0 * 0.0000225               // output: above_200k
-            + 150_000.0 * 0.0000003               // cache_read: base
-            + 50_000.0 * 0.00000375; // cache_creation: base
+        // Case 2: input=50K + cache_read=60K + cache_creation=40K = 150K < 200K → base
+        // Even though total with output (50K+80K+60K+40K=230K) > 200K, output doesn't count
+        let cost2 = calculate_cost(50_000, 80_000, 60_000, 40_000, &pricing);
+        let expected2 = 50_000.0 * 0.000003        // base
+            + 80_000.0 * 0.000015                  // base
+            + 60_000.0 * 0.0000003                 // base
+            + 40_000.0 * 0.00000375; // base
         assert_eq!(cost2, expected2);
 
-        // Case 3: input and cache_read exceed 200K, others don't
-        let cost3 = calculate_cost(300_000, 100_000, 250_000, 50_000, &pricing);
-        let expected3 = 300_000.0 * 0.000006      // input: above_200k
-            + 100_000.0 * 0.000015                // output: base
-            + 250_000.0 * 0.0000006               // cache_read: above_200k
-            + 50_000.0 * 0.00000375; // cache_creation: base
+        // Case 3: Large output but small context → base prices
+        // input=50K + cache_read=0 + cache_creation=0 = 50K < 200K → base
+        let cost3 = calculate_cost(50_000, 500_000, 0, 0, &pricing);
+        let expected3 = 50_000.0 * 0.000003        // base
+            + 500_000.0 * 0.000015                 // base (output doesn't affect threshold)
+            + 0.0
+            + 0.0;
         assert_eq!(cost3, expected3);
-
-        // Case 4: Total > 200K but each type < 200K → all use base price
-        let cost4 = calculate_cost(50_000, 80_000, 60_000, 40_000, &pricing);
-        let expected4 = 50_000.0 * 0.000003       // input: base (< 200K)
-            + 80_000.0 * 0.000015                 // output: base (< 200K)
-            + 60_000.0 * 0.0000003                // cache_read: base (< 200K)
-            + 40_000.0 * 0.00000375; // cache_creation: base (< 200K)
-        assert_eq!(cost4, expected4);
     }
 
     #[test]
     fn test_calculate_cost_exactly_200k() {
-        // Test boundary condition: exactly 200K tokens
         let pricing = ModelPricing {
             input_cost_per_token: 0.000001,
             output_cost_per_token: 0.000002,
@@ -145,26 +147,25 @@ mod tests {
             cache_creation_input_token_cost_above_200k_tokens: 0.000001,
         };
 
-        // Exactly 200K should use base price (> 200K triggers above_200k)
-        let cost_exact = calculate_cost(200_000, 200_000, 200_000, 200_000, &pricing);
-        let expected = 200_000.0 * 0.000001      // base price (not > 200K)
-            + 200_000.0 * 0.000002               // base price
-            + 200_000.0 * 0.0000001              // base price
-            + 200_000.0 * 0.0000005; // base price
+        // Total input context = 200K + 0 + 0 = 200K (not > 200K) → base price
+        let cost_exact = calculate_cost(200_000, 50_000, 0, 0, &pricing);
+        let expected = 200_000.0 * 0.000001 + 50_000.0 * 0.000002 + 0.0 + 0.0;
         assert_eq!(cost_exact, expected);
 
-        // 200K + 1 should use above_200k price
-        let cost_above = calculate_cost(200_001, 200_001, 200_001, 200_001, &pricing);
-        let expected_above = 200_001.0 * 0.000002  // above_200k price (> 200K)
-            + 200_001.0 * 0.000004                 // above_200k price
-            + 200_001.0 * 0.0000002                // above_200k price
-            + 200_001.0 * 0.000001; // above_200k price
+        // Total input context = 200_001 + 0 + 0 = 200_001 > 200K → above_200k price
+        let cost_above = calculate_cost(200_001, 50_000, 0, 0, &pricing);
+        let expected_above = 200_001.0 * 0.000002 + 50_000.0 * 0.000004 + 0.0 + 0.0;
         assert_eq!(cost_above, expected_above);
+
+        // Boundary: split across types: 100K + 50K + 50_001 = 200_001 > 200K → above_200k
+        let cost_split = calculate_cost(100_000, 30_000, 50_000, 50_001, &pricing);
+        let expected_split =
+            100_000.0 * 0.000002 + 30_000.0 * 0.000004 + 50_000.0 * 0.0000002 + 50_001.0 * 0.000001;
+        assert_eq!(cost_split, expected_split);
     }
 
     #[test]
     fn test_calculate_cost_fallback_to_base() {
-        // Test fallback to base price when above_200k price is not available (0.0)
         let mut pricing = ModelPricing {
             input_cost_per_token: 0.000001,
             output_cost_per_token: 0.000002,
@@ -180,12 +181,13 @@ mod tests {
         pricing.cache_creation_input_token_cost_above_200k_tokens =
             pricing.cache_creation_input_token_cost;
 
-        // With tokens above 200K, should use base pricing (since above_200k was filled with base)
+        // Total input context = 250K + 250K + 250K = 750K > 200K
+        // But above_200k prices equal base prices, so cost is same as base
         let cost = calculate_cost(250_000, 250_000, 250_000, 250_000, &pricing);
-        let expected = 250_000.0 * 0.000001  // input with base price
-            + 250_000.0 * 0.000002           // output with base price
-            + 250_000.0 * 0.0000001          // cache_read with base price
-            + 250_000.0 * 0.0000005; // cache_creation with base price
+        let expected = 250_000.0 * 0.000001
+            + 250_000.0 * 0.000002
+            + 250_000.0 * 0.0000001
+            + 250_000.0 * 0.0000005;
         assert_eq!(cost, expected);
     }
 }
