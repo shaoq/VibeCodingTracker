@@ -46,7 +46,7 @@ jobs:
         run: git config --global http.sslVerify false
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,7 +58,7 @@ jobs:
 
       - name: Cargo build (release)
         run: |
-          cargo build --target ${{ matrix.target }} --release --locked
+          cargo build --target ${{ matrix.target }} --release --locked --bin ${{ github.event.repository.name }}
 
       - name: Stage Artifact
         shell: bash
@@ -75,8 +75,8 @@ jobs:
           cp "${bin_dir}/${bin}" "${dest}/${bin}"
 
       - name: Create .zip (Windows)
-        shell: powershell
         if: ${{ startsWith(matrix.runner, 'windows') }}
+        shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $dest = "dist/${{ matrix.target }}"
@@ -86,8 +86,8 @@ jobs:
           Compress-Archive -Path "$dest\$bin" -DestinationPath "$dest\$zip" -Force
 
       - name: Create .tar.gz (all platforms)
-        shell: bash
         if: ${{ !startsWith(matrix.runner, 'windows') }}
+        shell: bash
         run: |
           set -euo pipefail
           dest="dist/${{ matrix.target }}"
@@ -99,7 +99,7 @@ jobs:
           rm -f "$dest/${bin}" "$dest/${bin}.exe" || true
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.friendly_id }}
           path: dist/${{ matrix.target }}/*
@@ -117,7 +117,7 @@ jobs:
         run: git config --global http.sslVerify false
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -143,13 +143,14 @@ jobs:
           cargo package --locked --allow-dirty
 
       - name: Publish to crates.io
+        continue-on-error: true
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           cargo publish --allow-dirty
 
       - name: Upload .crate artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           path: target/package/*.crate
           name: crate
@@ -167,7 +168,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -203,13 +204,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -222,7 +223,7 @@ jobs:
           echo "Publishing version: ${VERSION}"
 
       - name: Download and extract build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: cli/nodejs/binaries/temp
           merge-multiple: true
@@ -273,6 +274,8 @@ jobs:
       - name: Copy README for npm
         run: |
           cp README.md cli/nodejs/README.md
+          cp README.zh-CN.md cli/nodejs/README.zh-CN.md
+          cp README.zh-TW.md cli/nodejs/README.zh-TW.md
 
       - name: Publish to npm with provenance
         working-directory: cli/nodejs
@@ -318,7 +321,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -337,7 +340,7 @@ jobs:
           echo "Publishing version: ${VERSION}"
 
       - name: Download and extract build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: cli/python/src/vibe_coding_tracker/binaries/temp
           merge-multiple: true
@@ -372,6 +375,8 @@ jobs:
       - name: Copy README for PyPI
         run: |
           cp README.md cli/python/README.md
+          cp README.zh-CN.md cli/python/README.zh-CN.md
+          cp README.zh-TW.md cli/python/README.zh-TW.md
 
       - name: Build package
         working-directory: cli/python
