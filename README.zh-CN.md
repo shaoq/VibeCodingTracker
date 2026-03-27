@@ -21,7 +21,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
-> 注意：以下 CLI 示例默认使用短别名 `vct`。若你是从源码构建，产生的二进制文件名称为 `vibe_coding_tracker`，可以自行建立别名，或在执行指令时将 `vct` 换成完整名称。
+> 注意：以下 CLI 示例默认使用短别名 `vct`。若您通过 npm/pip/cargo 安装，二进制文件名称可能为 `vibe_coding_tracker` 或 `vct`，可以自行建立别名，或在执行指令时将 `vct` 换成完整名称。
 
 ---
 
@@ -74,44 +74,9 @@
 
 选择最适合您的安装方式：
 
-#### 方式 1: 从源码编译 (推荐开发者 ✨)
+> 👨‍💻 **开发者**：如果您想从源码构建或参与开发，请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-适合想要自定义构建或贡献开发的用户：
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/Mai0313/VibeCodingTracker.git
-cd VibeCodingTracker
-
-# 2. 构建 release 版本
-cargo build --release
-
-# 3. 二进制文件位置
-./target/release/vibe_coding_tracker
-
-# 4. （可选）建立短别名
-# Linux/macOS:
-sudo ln -sf "$(pwd)/target/release/vibe_coding_tracker" /usr/local/bin/vct
-
-# 或安装到用户目录:
-mkdir -p ~/.local/bin
-ln -sf "$(pwd)/target/release/vibe_coding_tracker" ~/.local/bin/vct
-# 确保 ~/.local/bin 在您的 PATH 中
-```
-
-**前置条件**: [Rust 工具链](https://rustup.rs/) 1.85 或更高版本
-
-> **注意**: 此项目使用 **Rust 2024 edition**，需要 Rust 1.85+。如需更新，请执行 `rustup update`。
-
-#### 方式 2: 从 crates.io 安装
-
-使用 Cargo 从 Rust 官方包注册表安装：
-
-```bash
-cargo install vibe_coding_tracker
-```
-
-#### 方式 3: 从 npm 安装
+#### 方式 1: 从 npm 安装
 
 **前置条件**: [Node.js](https://nodejs.org/) v22 或更高版本
 
@@ -128,7 +93,7 @@ npm install -g @mai0313/vct
 npm install -g @mai0313/vibe-coding-tracker
 ```
 
-#### 方式 4: 从 PyPI 安装
+#### 方式 2: 从 PyPI 安装
 
 **前置条件**: Python 3.8 或更高版本
 
@@ -138,6 +103,14 @@ pip install vibe_coding_tracker
 uv pip install vibe_coding_tracker
 ```
 
+#### 方式 3: 从 crates.io 安装
+
+使用 Cargo 从 Rust 官方包注册表安装：
+
+```bash
+cargo install vibe_coding_tracker
+```
+
 ### 首次运行
 
 ```bash
@@ -145,13 +118,11 @@ uv pip install vibe_coding_tracker
 vct usage
 
 # 或使用完整名称
-./target/release/vibe_coding_tracker usage
+vibe_coding_tracker usage
 
 # 分析特定对话
-./target/release/vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
+vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
 ```
-
-> 💡 **提示**：使用 `vct` 作为 `vibe_coding_tracker` 的短别名，节省输入时间——可通过 `ln -sf "$(pwd)/target/release/vibe_coding_tracker" ~/.local/bin/vct` 手动建立。
 
 ---
 

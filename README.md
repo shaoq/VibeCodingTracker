@@ -21,7 +21,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
-> Note: CLI examples use the short alias `vct`. If you built from source, the compiled binary is named `vibe_coding_tracker`; create an alias or replace `vct` with the full name when running commands.
+> Note: CLI examples use the short alias `vct`. If you installed via npm/pip/cargo, the binary might be named `vibe_coding_tracker` or `vct`. Create an alias or replace `vct` with the full name when running commands if needed.
 
 ---
 
@@ -74,45 +74,9 @@ Automatically detects and processes logs from Claude Code, Codex, Copilot, and G
 
 Choose the installation method that works best for you:
 
-#### Method 1: Build from Source (Recommended for Developers)
+> 👨‍💻 **Developers**: If you want to build from source or contribute to development, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-For users who want to customize the build or contribute to development:
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/Mai0313/VibeCodingTracker.git
-cd VibeCodingTracker
-
-# 2. Build release version
-cargo build --release
-
-# 3. Binary location
-./target/release/vibe_coding_tracker
-
-# 4. Optional: create a short alias
-# Linux/macOS:
-sudo ln -sf "$(pwd)/target/release/vibe_coding_tracker" /usr/local/bin/vct
-
-# Or install to user directory:
-mkdir -p ~/.local/bin
-ln -sf "$(pwd)/target/release/vibe_coding_tracker" ~/.local/bin/vct
-# Make sure ~/.local/bin is in your PATH
-```
-
-**Prerequisites**: [Rust toolchain](https://rustup.rs/) 1.85 or higher
-
-> [!NOTE]
-> This project uses **Rust 2024 edition** and requires Rust 1.85+. Update your toolchain with `rustup update` if needed.
-
-#### Method 2: Install from crates.io
-
-Install using Cargo from the official Rust package registry:
-
-```bash
-cargo install vibe_coding_tracker
-```
-
-#### Method 3: Install from npm
+#### Method 1: Install from npm
 
 **Prerequisites**: [Node.js](https://nodejs.org/) v22 or higher
 
@@ -129,7 +93,7 @@ npm install -g @mai0313/vct
 npm install -g @mai0313/vibe-coding-tracker
 ```
 
-#### Method 4: Install from PyPI
+#### Method 2: Install from PyPI
 
 **Prerequisites**: Python 3.8 or higher
 
@@ -139,20 +103,26 @@ pip install vibe_coding_tracker
 uv pip install vibe_coding_tracker
 ```
 
+#### Method 3: Install from crates.io
+
+Install using Cargo from the official Rust package registry:
+
+```bash
+cargo install vibe_coding_tracker
+```
+
 ### First Run
 
 ```bash
 # View your usage with the short alias (if available)
 vct usage
 
-# Or run the binary built by Cargo
-./target/release/vibe_coding_tracker usage
+# Or run the binary built by Cargo/pip
+vibe_coding_tracker usage
 
 # Analyze a specific conversation
-./target/release/vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
+vibe_coding_tracker analysis --path ~/.claude/projects/session.jsonl
 ```
-
-> 💡 **Tip**: Use `vct` as a short alias for `vibe_coding_tracker` to save typing—create it manually with `ln -sf ./target/release/vibe_coding_tracker ~/.local/bin/vct` (or any path you prefer).
 
 ---
 
