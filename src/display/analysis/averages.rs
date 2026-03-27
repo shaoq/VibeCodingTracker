@@ -1,12 +1,11 @@
 use crate::analysis::AggregatedAnalysisRow;
 use crate::display::common::{DailyAverageRow, ProviderAverage, ProviderStatistics};
-use crate::models::Provider;
+use crate::models::{Provider, ProviderActiveDays};
 use crate::utils::format_number;
 
 /// Data structure for an analysis row (internal use)
 #[derive(Default)]
 pub struct AnalysisRow {
-    pub date: String,
     pub model: String,
     pub edit_lines: usize,
     pub read_lines: usize,
@@ -99,10 +98,6 @@ impl AnalysisProviderStats {
 }
 
 impl DailyAverageRow for AnalysisRow {
-    fn date(&self) -> &str {
-        &self.date
-    }
-
     fn model(&self) -> &str {
         &self.model
     }
@@ -130,8 +125,11 @@ pub type AnalysisDailyAverages =
     crate::display::common::DailyAverages<AnalysisRow, AnalysisProviderStats>;
 
 /// Calculate daily averages for analysis data, grouped by provider (uses generic implementation)
-pub fn calculate_analysis_daily_averages(rows: &[AnalysisRow]) -> AnalysisDailyAverages {
-    crate::display::common::calculate_daily_averages(rows)
+pub fn calculate_analysis_daily_averages(
+    rows: &[AnalysisRow],
+    provider_days: &ProviderActiveDays,
+) -> AnalysisDailyAverages {
+    crate::display::common::calculate_daily_averages(rows, provider_days)
 }
 
 /// Build provider average rows for display
@@ -196,7 +194,6 @@ pub fn format_lines_per_day(value: f64) -> String {
 pub fn convert_to_analysis_rows(data: &[AggregatedAnalysisRow]) -> Vec<AnalysisRow> {
     data.iter()
         .map(|row| AnalysisRow {
-            date: row.date.clone(),
             model: row.model.clone(),
             edit_lines: row.edit_lines,
             read_lines: row.read_lines,

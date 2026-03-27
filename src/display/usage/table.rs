@@ -4,7 +4,7 @@ use crate::display::common::table::{
 use crate::display::usage::averages::{
     build_provider_average_rows, build_usage_summary, format_tokens_per_day,
 };
-use crate::models::DateUsageResult;
+use crate::models::{ProviderActiveDays, UsageResult};
 use crate::pricing::{ModelPricingMap, fetch_model_pricing};
 use crate::utils::format_number;
 use comfy_table::{Cell, CellAlignment, Color, Table, presets::UTF8_FULL};
@@ -12,7 +12,7 @@ use owo_colors::OwoColorize;
 use std::collections::HashMap;
 
 /// Displays token usage data as a static table
-pub fn display_usage_table(usage_data: &DateUsageResult) {
+pub fn display_usage_table(usage_data: &UsageResult, provider_days: &ProviderActiveDays) {
     if usage_data.is_empty() {
         println!("⚠️  No usage data found in Claude Code or Codex sessions");
         return;
@@ -31,8 +31,7 @@ pub fn display_usage_table(usage_data: &DateUsageResult) {
         }
     };
 
-    // Note: Removed pricing_cache - ModelPricingMap uses global MATCH_CACHE internally
-    let summary = build_usage_summary(usage_data, &pricing_map);
+    let summary = build_usage_summary(usage_data, provider_days, &pricing_map);
 
     if summary.rows.is_empty() {
         println!("⚠️  No usage data found in Claude Code or Codex sessions");
@@ -45,7 +44,6 @@ pub fn display_usage_table(usage_data: &DateUsageResult) {
     // Create table
     let mut table = create_comfy_table(
         vec![
-            "Date",
             "Model",
             "Input",
             "Output",
@@ -60,9 +58,6 @@ pub fn display_usage_table(usage_data: &DateUsageResult) {
     // Add data rows
     for row in rows {
         table.add_row(vec![
-            Cell::new(&row.date)
-                .fg(Color::Cyan)
-                .set_alignment(CellAlignment::Left),
             Cell::new(&row.display_model)
                 .fg(Color::Green)
                 .set_alignment(CellAlignment::Left),
@@ -91,7 +86,6 @@ pub fn display_usage_table(usage_data: &DateUsageResult) {
     add_totals_row(
         &mut table,
         vec![
-            "".to_string(),
             "TOTAL".to_string(),
             format_number(totals.input_tokens),
             format_number(totals.output_tokens),

@@ -8,8 +8,8 @@ pub mod capacity {
     /// Expected number of unique dates in usage tracking
     pub const DATES_IN_USAGE: usize = 30;
 
-    /// Expected number of date-model combinations in batch analysis
-    pub const DATE_MODEL_COMBINATIONS: usize = 100;
+    /// Expected number of unique models in batch analysis
+    pub const MODEL_COMBINATIONS: usize = 20;
 
     /// Expected number of session files per directory
     pub const SESSION_FILES: usize = 50;

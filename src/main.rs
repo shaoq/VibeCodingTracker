@@ -12,10 +12,11 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use vibe_coding_tracker::display::usage::{
     display_usage_interactive, display_usage_table, display_usage_text,
 };
+use vibe_coding_tracker::models::UsageResult;
 use vibe_coding_tracker::pricing::{ModelPricingMap, calculate_cost, fetch_model_pricing};
 use vibe_coding_tracker::usage::get_usage_from_directories;
 use vibe_coding_tracker::utils::extract_token_counts;
-use vibe_coding_tracker::{DateUsageResult, analyze_jsonl_file, get_version_info};
+use vibe_coding_tracker::{analyze_jsonl_file, get_version_info};
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -60,7 +61,7 @@ fn main() -> Result<()> {
                         let analysis_data = vibe_coding_tracker::analysis::analyze_all_sessions()?;
 
                         if let Some(output_path) = output {
-                            let json_value = serde_json::to_value(&analysis_data)?;
+                            let json_value = serde_json::to_value(&analysis_data.rows)?;
                             vibe_coding_tracker::utils::save_json_pretty(
                                 &output_path,
                                 &json_value,
@@ -95,13 +96,13 @@ fn main() -> Result<()> {
                             ModelPricingMap::new(HashMap::new())
                         }
                     };
-                    let enriched_data = build_enriched_json(&usage_data, &pricing_map)?;
+                    let enriched_data = build_enriched_json(&usage_data.models, &pricing_map)?;
                     let json_str = serde_json::to_string_pretty(&enriched_data)?;
                     println!("{}", json_str);
                 } else if text {
-                    display_usage_text(&usage_data);
+                    display_usage_text(&usage_data.models, &usage_data.provider_days);
                 } else {
-                    display_usage_table(&usage_data);
+                    display_usage_table(&usage_data.models, &usage_data.provider_days);
                 }
             } else {
                 display_usage_interactive()?;
@@ -172,46 +173,35 @@ fn main() -> Result<()> {
 }
 
 fn build_enriched_json(
-    usage_data: &DateUsageResult,
+    usage_data: &UsageResult,
     pricing_map: &ModelPricingMap,
-) -> Result<HashMap<String, Vec<Value>>> {
-    // Pre-allocate HashMap with estimated capacity
-    let mut enriched_data = HashMap::with_capacity(usage_data.len());
+) -> Result<Vec<Value>> {
+    let mut enriched_data = Vec::with_capacity(usage_data.len());
 
-    // Note: Removed local pricing_cache - ModelPricingMap.get() already uses
-    // a global MATCH_CACHE internally, so local caching is redundant
+    for (model, usage) in usage_data.iter() {
+        let counts = extract_token_counts(usage);
 
-    for (date, models) in usage_data.iter() {
-        let mut date_entries = Vec::with_capacity(models.len());
+        let pricing_result = pricing_map.get(model);
 
-        for (model, usage) in models.iter() {
-            let counts = extract_token_counts(usage);
+        let cost = calculate_cost(
+            counts.input_tokens,
+            counts.output_tokens,
+            counts.cache_read,
+            counts.cache_creation,
+            &pricing_result.pricing,
+        );
 
-            // Direct call - no local cache needed (uses global MATCH_CACHE)
-            let pricing_result = pricing_map.get(model);
+        let mut entry = json!({
+            "model": model,
+            "usage": usage,
+            "cost_usd": cost
+        });
 
-            let cost = calculate_cost(
-                counts.input_tokens,
-                counts.output_tokens,
-                counts.cache_read,
-                counts.cache_creation,
-                &pricing_result.pricing,
-            );
-
-            let mut entry = json!({
-                "model": model,
-                "usage": usage,
-                "cost_usd": cost
-            });
-
-            if let Some(matched) = &pricing_result.matched_model {
-                entry["matched_model"] = json!(matched);
-            }
-
-            date_entries.push(entry);
+        if let Some(matched) = &pricing_result.matched_model {
+            entry["matched_model"] = json!(matched);
         }
 
-        enriched_data.insert(date.clone(), date_entries);
+        enriched_data.push(entry);
     }
 
     Ok(enriched_data)

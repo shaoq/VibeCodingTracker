@@ -1,5 +1,5 @@
 use crate::display::common::{DailyAverageRow, ProviderAverage, ProviderStatistics};
-use crate::models::Provider;
+use crate::models::{Provider, ProviderActiveDays, UsageResult};
 use crate::utils::format_number;
 use serde_json::Value;
 use std::borrow::Cow;
@@ -7,7 +7,6 @@ use std::borrow::Cow;
 /// Data structure for a usage row
 #[derive(Default)]
 pub struct UsageRow {
-    pub date: String,
     pub model: String,         // 原始模型名稱
     pub display_model: String, // 可能含 fuzzy match 提示的顯示名稱
     pub input_tokens: i64,
@@ -78,10 +77,6 @@ impl ProviderStatistics<UsageRow> for ProviderStats {
 }
 
 impl DailyAverageRow for UsageRow {
-    fn date(&self) -> &str {
-        &self.date
-    }
-
     fn model(&self) -> &str {
         &self.model
     }
@@ -99,8 +94,11 @@ pub struct UsageSummary {
 }
 
 /// Calculate daily averages grouped by provider (uses generic implementation)
-pub fn calculate_daily_averages(rows: &[UsageRow]) -> DailyAverages {
-    crate::display::common::calculate_daily_averages(rows)
+pub fn calculate_daily_averages(
+    rows: &[UsageRow],
+    provider_days: &ProviderActiveDays,
+) -> DailyAverages {
+    crate::display::common::calculate_daily_averages(rows, provider_days)
 }
 
 /// Build provider average rows for display
@@ -162,9 +160,9 @@ pub fn format_tokens_per_day(value: f64) -> String {
 }
 
 /// Build a summary from raw usage data
-/// Note: Removed pricing_cache parameter - ModelPricingMap uses global MATCH_CACHE internally
 pub fn build_usage_summary(
-    usage_data: &crate::models::DateUsageResult,
+    usage_data: &UsageResult,
+    provider_days: &ProviderActiveDays,
     pricing_map: &crate::pricing::ModelPricingMap,
 ) -> UsageSummary {
     if usage_data.is_empty() {
@@ -173,29 +171,24 @@ pub fn build_usage_summary(
 
     let mut summary = UsageSummary::default();
 
-    // Pre-allocate rows vector with estimated capacity
-    let estimated_size: usize = usage_data.values().map(|m| m.len()).sum();
-    summary.rows.reserve(estimated_size);
+    // Pre-allocate rows vector
+    summary.rows.reserve(usage_data.len());
 
-    // Iterate in chronological order (BTreeMap is automatically sorted by date)
-    for (date, date_usage) in usage_data.iter() {
-        // Collect and sort models
-        let mut models: Vec<_> = date_usage.iter().collect();
-        models.sort_by_key(|(model, _)| *model);
+    // Collect and sort models
+    let mut models: Vec<_> = usage_data.iter().collect();
+    models.sort_by_key(|(model, _)| *model);
 
-        for (model, usage) in models {
-            let row = extract_usage_row(date, model, usage, pricing_map);
-            summary.totals.accumulate(&row);
-            summary.rows.push(row);
-        }
+    for (model, usage) in models {
+        let row = extract_usage_row(model, usage, pricing_map);
+        summary.totals.accumulate(&row);
+        summary.rows.push(row);
     }
 
-    summary.daily_averages = calculate_daily_averages(&summary.rows);
+    summary.daily_averages = calculate_daily_averages(&summary.rows, provider_days);
     summary
 }
 
 fn extract_usage_row(
-    date: &str,
     model: &str,
     usage: &Value,
     pricing_map: &crate::pricing::ModelPricingMap,
@@ -225,7 +218,6 @@ fn extract_usage_row(
     };
 
     UsageRow {
-        date: date.to_string(),
         model: model.to_string(),
         display_model: display_model.into_owned(),
         input_tokens: counts.input_tokens,

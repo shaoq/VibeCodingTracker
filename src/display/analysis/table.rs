@@ -1,4 +1,4 @@
-use crate::analysis::AggregatedAnalysisRow;
+use crate::analysis::AnalysisData;
 use crate::display::analysis::averages::{
     AnalysisRow, build_analysis_provider_rows, calculate_analysis_daily_averages,
     convert_to_analysis_rows, format_lines_per_day,
@@ -11,7 +11,8 @@ use comfy_table::{Cell, CellAlignment, Color, Table, presets::UTF8_FULL};
 use owo_colors::OwoColorize;
 
 /// Display analysis data as a static table
-pub fn display_analysis_table(data: &[AggregatedAnalysisRow]) {
+pub fn display_analysis_table(analysis: &AnalysisData) {
+    let data = &analysis.rows;
     if data.is_empty() {
         println!("⚠️  No analysis data found");
         return;
@@ -22,7 +23,6 @@ pub fn display_analysis_table(data: &[AggregatedAnalysisRow]) {
 
     let mut table = create_comfy_table(
         vec![
-            "Date",
             "Model",
             "Edit Lines",
             "Read Lines",
@@ -40,9 +40,6 @@ pub fn display_analysis_table(data: &[AggregatedAnalysisRow]) {
 
     for row in data {
         table.add_row(vec![
-            Cell::new(&row.date)
-                .fg(Color::Cyan)
-                .set_alignment(CellAlignment::Left),
             Cell::new(&row.model)
                 .fg(Color::Green)
                 .set_alignment(CellAlignment::Left),
@@ -86,7 +83,6 @@ pub fn display_analysis_table(data: &[AggregatedAnalysisRow]) {
     add_totals_row(
         &mut table,
         vec![
-            "".to_string(),
             "TOTAL".to_string(),
             format_number(totals.edit_lines),
             format_number(totals.read_lines),
@@ -105,7 +101,8 @@ pub fn display_analysis_table(data: &[AggregatedAnalysisRow]) {
 
     // Calculate and display daily averages
     let rows_for_averages = convert_to_analysis_rows(data);
-    let daily_averages = calculate_analysis_daily_averages(&rows_for_averages);
+    let daily_averages =
+        calculate_analysis_daily_averages(&rows_for_averages, &analysis.provider_days);
     let provider_rows = build_analysis_provider_rows(&daily_averages);
 
     println!(

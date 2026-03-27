@@ -1,4 +1,4 @@
-use crate::analysis::AggregatedAnalysisRow;
+use crate::analysis::AnalysisData;
 use crate::display::analysis::averages::{
     AnalysisRow, build_analysis_provider_rows, calculate_analysis_daily_averages,
     convert_to_analysis_rows, format_lines_per_day,
@@ -10,7 +10,7 @@ use crate::display::common::table::{
 use crate::display::common::tui::{
     InputAction, RefreshState, UpdateTracker, handle_input, restore_terminal, setup_terminal,
 };
-use crate::utils::{format_number, get_current_date};
+use crate::utils::format_number;
 use ratatui::{
     layout::{Constraint, Direction, Layout as RatatuiLayout},
     style::{Color as RatatuiColor, Style, Stylize},
@@ -22,8 +22,8 @@ const ANALYSIS_REFRESH_SECS: u64 = 10;
 const MAX_TRACKED_ANALYSIS_ROWS: usize = 100;
 
 /// Display analysis data as an interactive table
-pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::Result<()> {
-    if data.is_empty() {
+pub fn display_analysis_interactive(initial_data: &AnalysisData) -> anyhow::Result<()> {
+    if initial_data.rows.is_empty() {
         println!("⚠️  No analysis data found");
         return Ok(());
     }
@@ -56,34 +56,32 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
         sys.refresh_processes(sysinfo::ProcessesToUpdate::All, false);
         sys.refresh_cpu_all();
 
-        // Fetch fresh data with error logging - create new Vec each iteration to minimize memory
+        // Fetch fresh data with error logging
         let current_data = match crate::analysis::analyze_all_sessions() {
             Ok(data) => data,
             Err(e) => {
                 log::warn!("Failed to analyze sessions: {}", e);
-                Vec::new() // Empty vec on error
+                AnalysisData {
+                    rows: Vec::new(),
+                    provider_days: Default::default(),
+                }
             }
         };
 
         // Calculate totals and extract display data
-        // Only keep minimal fields needed for TUI display
         let mut totals = AnalysisRow::default();
-        let rows_data = convert_to_analysis_rows(&current_data);
+        let rows_data = convert_to_analysis_rows(&current_data.rows);
+        let provider_days = current_data.provider_days.clone();
 
         // Drop current_data immediately after conversion to free memory
-        // This releases all detailed file operation data (write_file_details, etc.)
         drop(current_data);
 
         // Clear file cache after processing to release memory
-        // TUI only needs the aggregated analysis data (totals and line counts)
-        // All detailed records can be discarded
         crate::cache::clear_global_cache();
-
-        let today = get_current_date();
 
         // Track updates
         for row in &rows_data {
-            let row_key = format!("{}:{}", row.date, row.model);
+            let row_key = row.model.clone();
             let current_tuple = (
                 row.edit_lines,
                 row.read_lines,
@@ -110,12 +108,12 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
         // Cleanup old entries
         let current_row_keys: Vec<String> = rows_data
             .iter()
-            .map(|row| format!("{}:{}", row.date, row.model))
+            .map(|row| row.model.clone())
             .collect();
         update_tracker.cleanup(current_row_keys);
 
         // Calculate daily averages
-        let daily_averages = calculate_analysis_daily_averages(&rows_data);
+        let daily_averages = calculate_analysis_daily_averages(&rows_data, &provider_days);
         let provider_rows = build_analysis_provider_rows(&daily_averages);
 
         // Render
@@ -139,7 +137,6 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
 
             // Table
             let header = vec![
-                "Date",
                 "Model",
                 "Edit Lines",
                 "Read Lines",
@@ -154,21 +151,18 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
             let mut rows: Vec<RatatuiRow> = rows_data
                 .iter()
                 .map(|row| {
-                    let row_key = format!("{}:{}", row.date, row.model);
+                    let row_key = row.model.clone();
 
                     // Check if this row was recently updated
                     let is_recently_updated = update_tracker.is_recently_updated(&row_key);
 
                     let style = if is_recently_updated {
                         Style::default().bg(RatatuiColor::Rgb(60, 80, 60)).bold()
-                    } else if row.date == today {
-                        Style::default().bg(RatatuiColor::Rgb(32, 32, 32))
                     } else {
                         Style::default()
                     };
 
                     RatatuiRow::new(vec![
-                        row.date.clone(),
                         row.model.clone(),
                         format_number(row.edit_lines),
                         format_number(row.read_lines),
@@ -186,7 +180,6 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
             // Add totals row
             rows.push(
                 RatatuiRow::new(vec![
-                    "".to_string(),
                     "TOTAL".to_string(),
                     format_number(totals.edit_lines),
                     format_number(totals.read_lines),
@@ -206,7 +199,6 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
             );
 
             let widths = [
-                Constraint::Length(12), // Date
                 Constraint::Min(20),    // Model
                 Constraint::Length(12), // Edit Lines
                 Constraint::Length(12), // Read Lines
@@ -315,7 +307,7 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
                     total_tools_str.as_str(),
                     RatatuiColor::Cyan,
                 ),
-                ("📅 Entries:", entries_str.as_str(), RatatuiColor::Blue),
+                ("📊 Models:", entries_str.as_str(), RatatuiColor::Blue),
             ];
 
             let summary = create_summary(summary_items, &sys, pid);
@@ -333,10 +325,8 @@ pub fn display_analysis_interactive(data: &[AggregatedAnalysisRow]) -> anyhow::R
         // Drop heavy data structures after rendering to free memory immediately
         drop(rows_data);
         drop(provider_rows);
-        // daily_averages and totals don't implement Drop, so they'll be dropped automatically
 
         // Force release of any remaining references by clearing caches again
-        // This ensures minimal memory retention between refresh cycles
         crate::cache::clear_global_cache();
 
         // Handle input with timeout

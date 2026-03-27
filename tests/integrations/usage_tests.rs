@@ -22,14 +22,9 @@ fn test_get_usage_from_directories_structure() {
 
     if let Ok(usage) = result {
         // Verify that the result has valid structure
-        for (date, models) in usage.iter() {
-            assert!(!date.is_empty(), "Date should not be empty");
-
-            // Verify model data structure
-            for (_model_name, model_data) in models {
-                // Verify the JSON structure has expected fields
-                assert!(model_data.is_object(), "Model data should be an object");
-            }
+        for (_model_name, model_data) in usage.models.iter() {
+            // Verify the JSON structure has expected fields
+            assert!(model_data.is_object(), "Model data should be an object");
         }
     }
 }
@@ -37,12 +32,11 @@ fn test_get_usage_from_directories_structure() {
 #[test]
 fn test_usage_data_serialization() {
     use serde_json::json;
-    use vibe_coding_tracker::models::usage::DateUsageResult;
+    use vibe_coding_tracker::models::usage::UsageResult;
 
     // Create sample usage data
-    let mut usage = DateUsageResult::default();
-    let mut model_data = ahash::AHashMap::default();
-    model_data.insert(
+    let mut usage = UsageResult::default();
+    usage.insert(
         "claude-sonnet-4".to_string(),
         json!({
             "input_tokens": 1000,
@@ -54,37 +48,17 @@ fn test_usage_data_serialization() {
         }),
     );
 
-    usage.insert("2025-10-11".to_string(), model_data);
-
     // Test serialization to JSON
     let json = serde_json::to_string(&usage).unwrap();
     assert!(
         json.contains("claude-sonnet-4"),
         "Should contain model name"
     );
-    assert!(json.contains("2025-10-11"), "Should contain date");
 
     // Test deserialization
-    let deserialized: DateUsageResult = serde_json::from_str(&json).unwrap();
+    let deserialized: UsageResult = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.len(), usage.len());
-    assert!(deserialized.contains_key("2025-10-11"));
-}
-
-#[test]
-fn test_usage_aggregation_by_date() {
-    // Test that usage dates are properly formatted
-    let result = get_usage_from_directories();
-
-    if let Ok(usage) = result {
-        // Verify that dates are properly formatted (YYYY-MM-DD)
-        for date in usage.keys() {
-            assert!(date.len() == 10, "Date should be in YYYY-MM-DD format");
-            assert!(
-                date.chars().filter(|c| *c == '-').count() == 2,
-                "Date should have two hyphens"
-            );
-        }
-    }
+    assert!(deserialized.contains_key("claude-sonnet-4"));
 }
 
 #[test]
@@ -113,13 +87,10 @@ fn test_usage_calculation_cost_accuracy() {
 fn test_usage_with_multiple_models() {
     // Test handling of multiple models in usage data
     use serde_json::json;
-    use vibe_coding_tracker::models::usage::DateUsageResult;
+    use vibe_coding_tracker::models::usage::UsageResult;
 
-    let mut usage = DateUsageResult::default();
-    let date = "2025-10-11".to_string();
-
-    let mut models = ahash::AHashMap::default();
-    models.insert(
+    let mut usage = UsageResult::default();
+    usage.insert(
         "claude-sonnet-4".to_string(),
         json!({
             "input_tokens": 1000,
@@ -129,7 +100,7 @@ fn test_usage_with_multiple_models() {
             "cost_usd": 0.05
         }),
     );
-    models.insert(
+    usage.insert(
         "gpt-4-turbo".to_string(),
         json!({
             "input_tokens": 2000,
@@ -140,11 +111,9 @@ fn test_usage_with_multiple_models() {
         }),
     );
 
-    usage.insert(date.clone(), models);
+    assert_eq!(usage.len(), 2, "Should have two models");
 
-    assert_eq!(usage[&date].len(), 2, "Should have two models");
-
-    let total_cost: f64 = usage[&date]
+    let total_cost: f64 = usage
         .values()
         .filter_map(|v| v["cost_usd"].as_f64())
         .sum();
@@ -158,11 +127,10 @@ fn test_usage_with_multiple_models() {
 fn test_usage_json_output_format() {
     // Test that JSON output format matches expected structure
     use serde_json::{Value, json};
-    use vibe_coding_tracker::models::usage::DateUsageResult;
+    use vibe_coding_tracker::models::usage::UsageResult;
 
-    let mut usage = DateUsageResult::default();
-    let mut model_data = ahash::AHashMap::default();
-    model_data.insert(
+    let mut usage = UsageResult::default();
+    usage.insert(
         "claude-sonnet-4".to_string(),
         json!({
             "input_tokens": 1000,
@@ -174,19 +142,13 @@ fn test_usage_json_output_format() {
         }),
     );
 
-    usage.insert("2025-10-11".to_string(), model_data);
-
     let json = serde_json::to_string_pretty(&usage).unwrap();
     let parsed: Value = serde_json::from_str(&json).unwrap();
 
     // Verify structure
     assert!(parsed.is_object(), "Root should be an object");
-    assert!(
-        parsed["2025-10-11"].is_object(),
-        "Date value should be an object"
-    );
 
-    let model_value = &parsed["2025-10-11"]["claude-sonnet-4"];
+    let model_value = &parsed["claude-sonnet-4"];
     assert!(
         model_value["input_tokens"].is_number(),
         "input_tokens should be number"
@@ -221,22 +183,4 @@ fn test_usage_handles_missing_cache_tokens() {
         usage_value["cache_creation_input_tokens"].as_i64().unwrap(),
         0
     );
-}
-
-#[test]
-fn test_usage_date_sorting() {
-    // Test that dates are properly sortable
-    use vibe_coding_tracker::models::usage::DateUsageResult;
-
-    let mut usage = DateUsageResult::default();
-    usage.insert("2025-10-15".to_string(), ahash::AHashMap::default());
-    usage.insert("2025-10-10".to_string(), ahash::AHashMap::default());
-    usage.insert("2025-10-12".to_string(), ahash::AHashMap::default());
-
-    let mut dates: Vec<_> = usage.keys().collect();
-    dates.sort();
-
-    assert_eq!(dates[0], "2025-10-10");
-    assert_eq!(dates[1], "2025-10-12");
-    assert_eq!(dates[2], "2025-10-15");
 }

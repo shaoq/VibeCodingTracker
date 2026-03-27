@@ -227,10 +227,9 @@ fn test_batch_analysis_basic() {
     let result = analyze_all_sessions();
     assert!(result.is_ok(), "Batch analysis should not fail");
 
-    if let Ok(rows) = result {
+    if let Ok(data) = result {
         // Verify each row has required fields
-        for row in rows.iter() {
-            assert!(!row.date.is_empty(), "Date should not be empty");
+        for row in data.rows.iter() {
             assert!(!row.model.is_empty(), "Model should not be empty");
             // Line counts are usize, so they're always non-negative
             let _ = row.edit_lines;
@@ -244,26 +243,14 @@ fn test_batch_analysis_basic() {
 fn test_batch_analysis_sorting() {
     let result = analyze_all_sessions();
 
-    if let Ok(rows) = result {
-        if rows.len() > 1 {
-            // Verify sorting: dates should be in order
-            for i in 0..rows.len() - 1 {
-                let current_date = &rows[i].date;
-                let next_date = &rows[i + 1].date;
-
-                if current_date == next_date {
-                    // Same date, models should be sorted
-                    assert!(
-                        rows[i].model <= rows[i + 1].model,
-                        "Models should be sorted alphabetically for same date"
-                    );
-                } else {
-                    // Different dates should be in chronological order
-                    assert!(
-                        current_date <= next_date,
-                        "Dates should be sorted chronologically"
-                    );
-                }
+    if let Ok(data) = result {
+        if data.rows.len() > 1 {
+            // Verify sorting: models should be in alphabetical order
+            for i in 0..data.rows.len() - 1 {
+                assert!(
+                    data.rows[i].model <= data.rows[i + 1].model,
+                    "Models should be sorted alphabetically"
+                );
             }
         }
     }
@@ -274,7 +261,6 @@ fn test_batch_analysis_serialization() {
     use vibe_coding_tracker::analysis::batch_analyzer::AggregatedAnalysisRow;
 
     let row = AggregatedAnalysisRow {
-        date: "2025-10-11".to_string(),
         model: "claude-sonnet-4".to_string(),
         edit_lines: 100,
         read_lines: 200,
@@ -311,7 +297,6 @@ fn test_batch_analysis_serialization() {
 
     // Test deserialization
     let deserialized: AggregatedAnalysisRow = serde_json::from_str(&json).unwrap();
-    assert_eq!(deserialized.date, row.date);
     assert_eq!(deserialized.model, row.model);
     assert_eq!(deserialized.edit_lines, row.edit_lines);
 }
@@ -369,30 +354,27 @@ fn test_analysis_with_invalid_json() {
 }
 
 #[test]
-fn test_analysis_date_format() {
-    // Test that dates are formatted correctly (YYYY-MM-DD)
+fn test_batch_analysis_model_grouping() {
+    // Test that batch analysis groups data by model
     let result = analyze_all_sessions();
 
-    if let Ok(rows) = result {
-        for row in rows.iter() {
-            assert_eq!(
-                row.date.len(),
-                10,
-                "Date should be 10 characters (YYYY-MM-DD)"
-            );
-            assert_eq!(
-                row.date.chars().filter(|c| *c == '-').count(),
-                2,
-                "Date should have exactly 2 hyphens"
-            );
-
-            // Verify date components are numeric
-            let parts: Vec<&str> = row.date.split('-').collect();
-            assert_eq!(parts.len(), 3, "Date should have 3 parts");
-            assert!(parts[0].parse::<u32>().is_ok(), "Year should be numeric");
-            assert!(parts[1].parse::<u32>().is_ok(), "Month should be numeric");
-            assert!(parts[2].parse::<u32>().is_ok(), "Day should be numeric");
+    if let Ok(data) = result {
+        for row in data.rows.iter() {
+            assert!(!row.model.is_empty(), "Model should not be empty");
         }
+
+        // Verify provider active days are tracked
+        // Total days should be >= max of individual provider days
+        let max_provider_days = data
+            .provider_days
+            .claude
+            .max(data.provider_days.codex)
+            .max(data.provider_days.copilot)
+            .max(data.provider_days.gemini);
+        assert!(
+            data.provider_days.total >= max_provider_days,
+            "Total days should be >= max individual provider days"
+        );
     }
 }
 
@@ -403,7 +385,6 @@ fn test_analysis_aggregation_logic() {
 
     let rows = [
         AggregatedAnalysisRow {
-            date: "2025-10-11".to_string(),
             model: "claude-sonnet-4".to_string(),
             edit_lines: 50,
             read_lines: 100,
@@ -415,7 +396,6 @@ fn test_analysis_aggregation_logic() {
             write_count: 3,
         },
         AggregatedAnalysisRow {
-            date: "2025-10-11".to_string(),
             model: "claude-sonnet-4".to_string(),
             edit_lines: 50,
             read_lines: 100,

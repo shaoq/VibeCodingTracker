@@ -1,18 +1,19 @@
 use crate::cache::global_cache;
 use crate::constants::{FastHashMap, capacity};
+use crate::models::ProviderActiveDays;
 use crate::utils::{collect_files_with_dates, is_gemini_chat_file, is_json_file};
 use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
-/// Single row of aggregated metrics grouped by date and model
+/// Single row of aggregated metrics grouped by model
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AggregatedAnalysisRow {
-    pub date: String,
     pub model: String,
     pub edit_lines: usize,
     pub read_lines: usize,
@@ -24,42 +25,83 @@ pub struct AggregatedAnalysisRow {
     pub write_count: usize,
 }
 
+/// Analysis results with provider active day counts for daily averages
+pub struct AnalysisData {
+    pub rows: Vec<AggregatedAnalysisRow>,
+    pub provider_days: ProviderActiveDays,
+}
+
 /// Analyzes all session files across providers and aggregates file operation metrics
 ///
 /// Scans Claude, Codex, Copilot, and Gemini session directories, aggregates tool call counts
-/// and line counts by date and model, then returns sorted results.
-pub fn analyze_all_sessions() -> Result<Vec<AggregatedAnalysisRow>> {
+/// and line counts by model, then returns sorted results with provider active day counts.
+pub fn analyze_all_sessions() -> Result<AnalysisData> {
     let paths = crate::utils::resolve_paths()?;
-    // Pre-allocate FastHashMap using centralized capacity constant
     let mut aggregated: FastHashMap<String, AggregatedAnalysisRow> =
-        FastHashMap::with_capacity(capacity::DATE_MODEL_COMBINATIONS);
+        FastHashMap::with_capacity(capacity::MODEL_COMBINATIONS);
+
+    let mut claude_dates: HashSet<String> = HashSet::new();
+    let mut codex_dates: HashSet<String> = HashSet::new();
+    let mut copilot_dates: HashSet<String> = HashSet::new();
+    let mut gemini_dates: HashSet<String> = HashSet::new();
 
     if paths.claude_session_dir.exists() {
-        process_analysis_directory(&paths.claude_session_dir, &mut aggregated, is_json_file)?;
+        process_analysis_directory(
+            &paths.claude_session_dir,
+            &mut aggregated,
+            &mut claude_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.codex_session_dir.exists() {
-        process_analysis_directory(&paths.codex_session_dir, &mut aggregated, is_json_file)?;
+        process_analysis_directory(
+            &paths.codex_session_dir,
+            &mut aggregated,
+            &mut codex_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.copilot_session_dir.exists() {
-        process_analysis_directory(&paths.copilot_session_dir, &mut aggregated, is_json_file)?;
+        process_analysis_directory(
+            &paths.copilot_session_dir,
+            &mut aggregated,
+            &mut copilot_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.gemini_session_dir.exists() {
         process_analysis_directory(
             &paths.gemini_session_dir,
             &mut aggregated,
+            &mut gemini_dates,
             is_gemini_chat_file,
         )?;
     }
 
+    let mut all_dates: HashSet<&String> = HashSet::new();
+    all_dates.extend(claude_dates.iter());
+    all_dates.extend(codex_dates.iter());
+    all_dates.extend(copilot_dates.iter());
+    all_dates.extend(gemini_dates.iter());
+
+    let provider_days = ProviderActiveDays {
+        claude: claude_dates.len(),
+        codex: codex_dates.len(),
+        copilot: copilot_dates.len(),
+        gemini: gemini_dates.len(),
+        total: all_dates.len(),
+    };
+
     let mut results: Vec<AggregatedAnalysisRow> = aggregated.into_values().collect();
+    results.sort_unstable_by(|a, b| a.model.cmp(&b.model));
 
-    // Use unstable_sort for better performance (order of equal elements doesn't matter)
-    results.sort_unstable_by(|a, b| a.date.cmp(&b.date).then_with(|| a.model.cmp(&b.model)));
-
-    Ok(results)
+    Ok(AnalysisData {
+        rows: results,
+        provider_days,
+    })
 }
 
 /// Complete CodeAnalysis results organized by AI provider
@@ -170,6 +212,7 @@ where
 fn process_analysis_directory<P, F>(
     dir: P,
     aggregated: &mut FastHashMap<String, AggregatedAnalysisRow>,
+    unique_dates: &mut HashSet<String>,
     filter_fn: F,
 ) -> Result<()>
 where
@@ -200,7 +243,8 @@ where
 
     // Merge parallel results sequentially (this part is fast)
     for (date, analysis_arc) in file_aggregations {
-        aggregate_analysis_result(aggregated, &date, &analysis_arc);
+        unique_dates.insert(date);
+        aggregate_analysis_result(aggregated, &analysis_arc);
     }
 
     Ok(())
@@ -208,7 +252,6 @@ where
 
 fn aggregate_analysis_result(
     aggregated: &mut FastHashMap<String, AggregatedAnalysisRow>,
-    date: &str,
     analysis: &Value,
 ) {
     let Some(records) = analysis.get("records").and_then(|r| r.as_array()) else {
@@ -232,15 +275,10 @@ fn aggregate_analysis_result(
                 continue;
             }
 
-            // Use a pre-allocated key buffer to avoid allocation on every iteration
-            let key = format!("{}:{}", date, model);
-
-            // Use entry API with or_insert_with to only clone when necessary
             let entry = aggregated
-                .entry(key)
+                .entry(model.to_string())
                 .or_insert_with(|| AggregatedAnalysisRow {
-                    date: date.to_string(),
-                    model: model.to_string(), // Only clone when creating new entry
+                    model: model.to_string(),
                     edit_lines: 0,
                     read_lines: 0,
                     write_lines: 0,

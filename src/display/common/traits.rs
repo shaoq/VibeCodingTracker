@@ -1,8 +1,5 @@
 /// Trait for rows that can be displayed in tables
 pub trait DisplayRow {
-    /// Get the date string for this row
-    fn date(&self) -> &str;
-
     /// Get the model name for this row
     fn model(&self) -> &str;
 
@@ -11,7 +8,7 @@ pub trait DisplayRow {
 
     /// Generate a unique key for tracking updates
     fn row_key(&self) -> String {
-        format!("{}:{}", self.date(), self.model())
+        self.model().to_string()
     }
 }
 

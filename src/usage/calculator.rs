@@ -1,12 +1,18 @@
 use crate::cache::global_cache;
 use crate::constants::{FastHashMap, capacity};
-use crate::models::DateUsageResult;
+use crate::models::{ProviderActiveDays, UsageResult};
 use crate::utils::{collect_files_with_dates, is_gemini_chat_file, is_json_file, resolve_paths};
 use anyhow::Result;
 use rayon::prelude::*;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::path::Path;
+
+/// Usage results with provider active day counts for daily averages
+pub struct UsageData {
+    pub models: UsageResult,
+    pub provider_days: ProviderActiveDays,
+}
 
 /// Extracts token usage data from CodeAnalysis records
 fn extract_conversation_usage_from_analysis(analysis: &Value) -> FastHashMap<String, Value> {
@@ -44,32 +50,78 @@ fn extract_conversation_usage_from_analysis(analysis: &Value) -> FastHashMap<Str
 /// Aggregates token usage from all AI provider session directories
 ///
 /// Scans Claude Code, Codex, Copilot, and Gemini session files, extracts token usage,
-/// and aggregates by date and model. Returns a BTreeMap sorted chronologically.
-pub fn get_usage_from_directories() -> Result<DateUsageResult> {
+/// and aggregates by model. Returns usage data with provider active day counts.
+pub fn get_usage_from_directories() -> Result<UsageData> {
     let paths = resolve_paths()?;
-    // Use BTreeMap for automatic chronological sorting by date
-    let mut result = BTreeMap::new();
+    let mut result = FastHashMap::with_capacity(capacity::MODEL_COMBINATIONS);
+
+    let mut claude_dates: HashSet<String> = HashSet::new();
+    let mut codex_dates: HashSet<String> = HashSet::new();
+    let mut copilot_dates: HashSet<String> = HashSet::new();
+    let mut gemini_dates: HashSet<String> = HashSet::new();
 
     if paths.claude_session_dir.exists() {
-        process_usage_directory(&paths.claude_session_dir, &mut result, is_json_file)?;
+        process_usage_directory(
+            &paths.claude_session_dir,
+            &mut result,
+            &mut claude_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.codex_session_dir.exists() {
-        process_usage_directory(&paths.codex_session_dir, &mut result, is_json_file)?;
+        process_usage_directory(
+            &paths.codex_session_dir,
+            &mut result,
+            &mut codex_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.copilot_session_dir.exists() {
-        process_usage_directory(&paths.copilot_session_dir, &mut result, is_json_file)?;
+        process_usage_directory(
+            &paths.copilot_session_dir,
+            &mut result,
+            &mut copilot_dates,
+            is_json_file,
+        )?;
     }
 
     if paths.gemini_session_dir.exists() {
-        process_usage_directory(&paths.gemini_session_dir, &mut result, is_gemini_chat_file)?;
+        process_usage_directory(
+            &paths.gemini_session_dir,
+            &mut result,
+            &mut gemini_dates,
+            is_gemini_chat_file,
+        )?;
     }
 
-    Ok(result)
+    let mut all_dates: HashSet<&String> = HashSet::new();
+    all_dates.extend(claude_dates.iter());
+    all_dates.extend(codex_dates.iter());
+    all_dates.extend(copilot_dates.iter());
+    all_dates.extend(gemini_dates.iter());
+
+    let provider_days = ProviderActiveDays {
+        claude: claude_dates.len(),
+        codex: codex_dates.len(),
+        copilot: copilot_dates.len(),
+        gemini: gemini_dates.len(),
+        total: all_dates.len(),
+    };
+
+    Ok(UsageData {
+        models: result,
+        provider_days,
+    })
 }
 
-fn process_usage_directory<P, F>(dir: P, result: &mut DateUsageResult, filter_fn: F) -> Result<()>
+fn process_usage_directory<P, F>(
+    dir: P,
+    result: &mut UsageResult,
+    unique_dates: &mut HashSet<String>,
+    filter_fn: F,
+) -> Result<()>
 where
     P: AsRef<Path>,
     F: Copy + Fn(&Path) -> bool + Sync + Send,
@@ -102,14 +154,10 @@ where
 
     // Merge parallel results sequentially (this part is fast)
     for (date, conversation_usage) in file_results {
-        // Use entry API to avoid double lookup
-        let date_entry = result
-            .entry(date)
-            .or_insert_with(|| FastHashMap::with_capacity(capacity::MODELS_PER_SESSION));
+        unique_dates.insert(date);
 
         for (model, usage_value) in conversation_usage {
-            // Use entry API to avoid double lookup
-            date_entry
+            result
                 .entry(model)
                 .and_modify(|existing| merge_usage_values(existing, &usage_value))
                 .or_insert(usage_value);

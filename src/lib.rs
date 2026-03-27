@@ -11,7 +11,7 @@ pub mod utils;
 
 pub use analysis::analyzer::analyze_jsonl_file;
 pub use models::*;
-pub use usage::calculator::get_usage_from_directories;
+pub use usage::calculator::{UsageData, get_usage_from_directories};
 
 pub const VERSION: &str = env!("BUILD_VERSION");
 pub const PKG_NAME: &str = env!("CARGO_PKG_NAME");

@@ -1,9 +1,7 @@
-use crate::models::Provider;
-use std::collections::{BTreeMap, HashSet};
+use crate::models::{Provider, ProviderActiveDays};
 
-/// Trait for data rows that provide date and model information for averaging
+/// Trait for data rows that provide model information for provider grouping
 pub trait DailyAverageRow {
-    fn date(&self) -> &str;
     fn model(&self) -> &str;
 }
 
@@ -19,35 +17,22 @@ pub trait ProviderStatistics<Row: DailyAverageRow>: Default {
 /// Calculates daily averages grouped by AI provider
 ///
 /// Generic implementation used by both usage and analysis commands to avoid code duplication.
-/// Groups rows by provider, counts unique days per provider, and accumulates metrics.
-pub fn calculate_daily_averages<R, S>(rows: &[R]) -> DailyAverages<R, S>
+/// Groups rows by provider, uses externally-provided day counts, and accumulates metrics.
+pub fn calculate_daily_averages<R, S>(
+    rows: &[R],
+    provider_days: &ProviderActiveDays,
+) -> DailyAverages<R, S>
 where
     R: DailyAverageRow,
     S: ProviderStatistics<R>,
 {
     let mut averages: DailyAverages<R, S> = DailyAverages::default();
 
-    // Use BTreeMap for date storage (already sorted, no String cloning for keys)
-    let mut date_provider_map: BTreeMap<&str, HashSet<Provider>> = BTreeMap::new();
-
-    // Group by date and provider to count unique days per provider
-    for row in rows {
-        let provider = Provider::from_model_name(row.model());
-        date_provider_map
-            .entry(row.date())
-            .or_insert_with(|| HashSet::with_capacity(3)) // Max 3 providers
-            .insert(provider);
-    }
-
-    // Count days per provider
-    let (claude_days, codex_days, copilot_days, gemini_days, total_days) =
-        count_provider_days(&date_provider_map);
-
-    averages.claude.set_days(claude_days);
-    averages.codex.set_days(codex_days);
-    averages.copilot.set_days(copilot_days);
-    averages.gemini.set_days(gemini_days);
-    averages.overall.set_days(total_days);
+    averages.claude.set_days(provider_days.claude);
+    averages.codex.set_days(provider_days.codex);
+    averages.copilot.set_days(provider_days.copilot);
+    averages.gemini.set_days(provider_days.gemini);
+    averages.overall.set_days(provider_days.total);
 
     // Accumulate totals
     for row in rows {
@@ -66,39 +51,6 @@ where
     }
 
     averages
-}
-
-/// Counts the number of unique days each provider was active
-fn count_provider_days(
-    date_provider_map: &BTreeMap<&str, HashSet<Provider>>,
-) -> (usize, usize, usize, usize, usize) {
-    let mut claude_days = 0;
-    let mut codex_days = 0;
-    let mut copilot_days = 0;
-    let mut gemini_days = 0;
-
-    for providers in date_provider_map.values() {
-        if providers.contains(&Provider::ClaudeCode) {
-            claude_days += 1;
-        }
-        if providers.contains(&Provider::Codex) {
-            codex_days += 1;
-        }
-        if providers.contains(&Provider::Copilot) {
-            copilot_days += 1;
-        }
-        if providers.contains(&Provider::Gemini) {
-            gemini_days += 1;
-        }
-    }
-
-    (
-        claude_days,
-        codex_days,
-        copilot_days,
-        gemini_days,
-        date_provider_map.len(),
-    )
 }
 
 /// Daily averages organized by provider with generic statistics type

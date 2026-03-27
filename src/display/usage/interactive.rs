@@ -8,9 +8,9 @@ use crate::display::common::tui::{
 use crate::display::usage::averages::{
     build_provider_average_rows, build_usage_summary, format_tokens_per_day,
 };
-use crate::models::DateUsageResult;
+use crate::models::{ProviderActiveDays, UsageResult};
 use crate::pricing::{ModelPricingMap, fetch_model_pricing};
-use crate::utils::{format_number, get_current_date};
+use crate::utils::format_number;
 use ratatui::{
     layout::{Constraint, Direction, Layout as RatatuiLayout},
     style::{Color as RatatuiColor, Style, Stylize},
@@ -51,7 +51,8 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
             std::time::Instant::now() - Duration::from_secs(PRICING_REFRESH_SECS);
     }
 
-    let mut usage_data = DateUsageResult::new();
+    let mut usage_data = UsageResult::default();
+    let mut provider_days = ProviderActiveDays::default();
     let mut has_usage_data = false;
 
     let mut update_tracker = UpdateTracker::new(MAX_TRACKED_ROWS, 1000);
@@ -94,7 +95,8 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
 
         match crate::usage::get_usage_from_directories() {
             Ok(data) => {
-                usage_data = data;
+                usage_data = data.models;
+                provider_days = data.provider_days;
                 has_usage_data = true;
             }
             Err(e) => {
@@ -114,7 +116,7 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
             }
         };
 
-        let summary = build_usage_summary(&usage_data, &pricing_map);
+        let summary = build_usage_summary(&usage_data, &provider_days, &pricing_map);
 
         // Drop pricing_map immediately after use to free memory (it can be 100+ MB)
         drop(pricing_map);
@@ -123,15 +125,11 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
         let rows_data = summary.rows;
         let totals = summary.totals;
         let daily_averages = summary.daily_averages;
-        // summary is automatically dropped here after extracting all fields
 
         // Clear raw usage data immediately after processing to free memory
-        // TUI only needs the aggregated summary
-        // clear() releases all elements; BTreeMap will be recreated fresh next iteration
         usage_data.clear();
 
         // Clear file cache and pricing cache to release memory
-        // This is crucial to prevent memory accumulation across TUI refresh cycles
         crate::cache::clear_global_cache();
         crate::pricing::clear_pricing_cache();
 
@@ -140,13 +138,13 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
         // Track updates
         let current_row_keys: Vec<String> = rows_data
             .iter()
-            .map(|row| format!("{}:{}", row.date, row.model))
+            .map(|row| row.model.clone())
             .collect();
 
         update_tracker.cleanup(current_row_keys.clone());
 
         for row in &rows_data {
-            let row_key = format!("{}:{}", row.date, row.model);
+            let row_key = row.model.clone();
             let current_data = (
                 row.input_tokens,
                 row.output_tokens,
@@ -174,7 +172,6 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
             f.render_widget(title, chunks[0]);
 
             let header = vec![
-                "Date",
                 "Model",
                 "Input",
                 "Output",
@@ -184,25 +181,20 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
                 "Cost (USD)",
             ];
 
-            let today = get_current_date();
-
             let mut rows: Vec<RatatuiRow> = rows_data
                 .iter()
                 .map(|row| {
-                    let row_key = format!("{}:{}", row.date, row.model);
+                    let row_key = row.model.clone();
 
                     let is_recently_updated = update_tracker.is_recently_updated(&row_key);
 
                     let style = if is_recently_updated {
                         Style::default().bg(RatatuiColor::Rgb(60, 80, 60)).bold()
-                    } else if row.date == today {
-                        Style::default().bg(RatatuiColor::Rgb(32, 32, 32))
                     } else {
                         Style::default()
                     };
 
                     RatatuiRow::new(vec![
-                        row.date.clone(),
                         row.display_model.clone(),
                         format_number(row.input_tokens),
                         format_number(row.output_tokens),
@@ -217,7 +209,6 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
 
             rows.push(
                 RatatuiRow::new(vec![
-                    "".to_string(),
                     "TOTAL".to_string(),
                     format_number(totals.input_tokens),
                     format_number(totals.output_tokens),
@@ -235,7 +226,6 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
             );
 
             let widths = [
-                Constraint::Length(12),
                 Constraint::Min(20),
                 Constraint::Length(12),
                 Constraint::Length(12),
@@ -303,7 +293,7 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
                     total_tokens_str.as_str(),
                     RatatuiColor::Cyan,
                 ),
-                ("📅 Entries:", entries_str.as_str(), RatatuiColor::Blue),
+                ("📊 Models:", entries_str.as_str(), RatatuiColor::Blue),
             ];
 
             let summary = create_summary(summary_items, &sys, pid);
@@ -319,10 +309,8 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
         // Drop heavy data structures after rendering to free memory immediately
         drop(rows_data);
         drop(provider_rows);
-        // daily_averages and totals don't implement Drop, so they'll be dropped automatically
 
         // Force release of any remaining references by clearing caches again
-        // This ensures minimal memory retention between refresh cycles
         crate::cache::clear_global_cache();
         crate::pricing::clear_pricing_cache();
 

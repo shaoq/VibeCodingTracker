@@ -238,13 +238,12 @@ fn benchmark_hashmap_performance(c: &mut Criterion) {
 
 fn benchmark_usage_aggregation(c: &mut Criterion) {
     use serde_json::json;
-    use vibe_coding_tracker::models::usage::DateUsageResult;
+    use vibe_coding_tracker::models::usage::UsageResult;
 
-    c.bench_function("aggregate usage 100 dates", |b| {
+    c.bench_function("aggregate usage 100 models", |b| {
         b.iter(|| {
-            let mut result = DateUsageResult::new();
+            let mut result = UsageResult::default();
             for i in 0..100 {
-                let date = format!("2025-01-{:02}", (i % 28) + 1);
                 let model = format!("model-{}", i % 5);
 
                 let usage = json!({
@@ -256,8 +255,7 @@ fn benchmark_usage_aggregation(c: &mut Criterion) {
                     "matched_model": format!("matched-model-{}", i % 5)
                 });
 
-                let date_entry = result.entry(date).or_default();
-                date_entry.insert(model, usage);
+                result.insert(model, usage);
             }
             black_box(result);
         })
@@ -305,12 +303,11 @@ fn benchmark_batch_analysis(c: &mut Criterion) {
 
 fn benchmark_json_serialization(c: &mut Criterion) {
     use serde_json::json;
-    use vibe_coding_tracker::models::usage::DateUsageResult;
+    use vibe_coding_tracker::models::usage::UsageResult;
 
     // Create sample data
-    let mut result = DateUsageResult::new();
+    let mut result = UsageResult::default();
     for i in 0..50 {
-        let date = format!("2025-01-{:02}", (i % 28) + 1);
         let model = format!("claude-sonnet-{}", i % 3);
 
         let usage = json!({
@@ -322,15 +319,14 @@ fn benchmark_json_serialization(c: &mut Criterion) {
             "matched_model": "claude-sonnet"
         });
 
-        let date_entry = result.entry(date).or_default();
-        date_entry.insert(model, usage);
+        result.insert(model, usage);
     }
 
-    c.bench_function("serialize DateUsageResult", |b| {
+    c.bench_function("serialize UsageResult", |b| {
         b.iter(|| serde_json::to_string(black_box(&result)))
     });
 
-    c.bench_function("serialize DateUsageResult pretty", |b| {
+    c.bench_function("serialize UsageResult pretty", |b| {
         b.iter(|| serde_json::to_string_pretty(black_box(&result)))
     });
 }
