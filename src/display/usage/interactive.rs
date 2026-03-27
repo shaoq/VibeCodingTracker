@@ -136,10 +136,7 @@ pub fn display_usage_interactive() -> anyhow::Result<()> {
         let provider_rows = build_provider_average_rows(&daily_averages);
 
         // Track updates
-        let current_row_keys: Vec<String> = rows_data
-            .iter()
-            .map(|row| row.model.clone())
-            .collect();
+        let current_row_keys: Vec<String> = rows_data.iter().map(|row| row.model.clone()).collect();
 
         update_tracker.cleanup(current_row_keys.clone());
 

@@ -106,10 +106,7 @@ pub fn display_analysis_interactive(initial_data: &AnalysisData) -> anyhow::Resu
         }
 
         // Cleanup old entries
-        let current_row_keys: Vec<String> = rows_data
-            .iter()
-            .map(|row| row.model.clone())
-            .collect();
+        let current_row_keys: Vec<String> = rows_data.iter().map(|row| row.model.clone()).collect();
         update_tracker.cleanup(current_row_keys);
 
         // Calculate daily averages

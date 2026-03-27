@@ -275,19 +275,20 @@ fn aggregate_analysis_result(
                 continue;
             }
 
-            let entry = aggregated
-                .entry(model.to_string())
-                .or_insert_with(|| AggregatedAnalysisRow {
-                    model: model.to_string(),
-                    edit_lines: 0,
-                    read_lines: 0,
-                    write_lines: 0,
-                    bash_count: 0,
-                    edit_count: 0,
-                    read_count: 0,
-                    todo_write_count: 0,
-                    write_count: 0,
-                });
+            let entry =
+                aggregated
+                    .entry(model.to_string())
+                    .or_insert_with(|| AggregatedAnalysisRow {
+                        model: model.to_string(),
+                        edit_lines: 0,
+                        read_lines: 0,
+                        write_lines: 0,
+                        bash_count: 0,
+                        edit_count: 0,
+                        read_count: 0,
+                        todo_write_count: 0,
+                        write_count: 0,
+                    });
 
             // Extract line counts
             entry.edit_lines += record_obj

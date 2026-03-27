@@ -113,10 +113,7 @@ fn test_usage_with_multiple_models() {
 
     assert_eq!(usage.len(), 2, "Should have two models");
 
-    let total_cost: f64 = usage
-        .values()
-        .filter_map(|v| v["cost_usd"].as_f64())
-        .sum();
+    let total_cost: f64 = usage.values().filter_map(|v| v["cost_usd"].as_f64()).sum();
     assert!(
         (total_cost - 0.15).abs() < 0.001,
         "Total cost should be sum of individual costs"
