@@ -166,6 +166,18 @@ vct usage --text
 
 # JSON for data processing
 vct usage --json
+
+# Grouped by day (based on session file modification time)
+vct usage --table --days
+
+# Grouped by ISO week
+vct usage --table --weekly
+
+# Daily grouping as JSON
+vct usage --json --days
+
+# Weekly grouping as JSON
+vct usage --json --weekly
 ```
 
 ### 預覽：互動式儀表板（`vct usage`）

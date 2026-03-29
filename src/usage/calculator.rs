@@ -1,6 +1,9 @@
 use crate::cache::global_cache;
 use crate::constants::{FastHashMap, capacity};
-use crate::models::{ProviderActiveDays, UsageResult};
+use crate::models::{
+    GroupedUsageData, GroupingMode, PeriodProviderDays, PeriodUsage, ProviderActiveDays,
+    Provider, UsageResult,
+};
 use crate::utils::{collect_files_with_dates, is_gemini_chat_file, is_json_file, resolve_paths};
 use anyhow::Result;
 use rayon::prelude::*;
@@ -197,5 +200,180 @@ fn merge_usage_values(existing: &mut Value, new: &Value) {
                 accumulate_nested_object(existing_obj, "total_token_usage", new_total);
             }
         }
+    }
+}
+
+/// Convert a YYYY-MM-DD date string to an ISO week key (YYYY-Www)
+fn date_to_iso_week(date_str: &str) -> String {
+    use chrono::Datelike;
+
+    let Ok(dt) = chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d") else {
+        return date_str.to_string();
+    };
+
+    let iso_week = dt.iso_week();
+    format!("{}-W{:02}", iso_week.year(), iso_week.week())
+}
+
+/// Convert a YYYY-MM-DD date string to the period key for the given grouping mode
+fn to_period_key(date_str: &str, mode: GroupingMode) -> String {
+    match mode {
+        GroupingMode::Daily => date_str.to_string(),
+        GroupingMode::Weekly => date_to_iso_week(date_str),
+    }
+}
+
+/// Aggregates token usage from all AI provider session directories,
+/// grouped by time period (day or ISO week).
+pub fn get_grouped_usage_from_directories(mode: GroupingMode) -> Result<GroupedUsageData> {
+    let paths = resolve_paths()?;
+
+    // Collect (date, model_usage, provider) triples across all providers
+    let mut all_file_results: Vec<(String, FastHashMap<String, Value>, Provider)> = Vec::new();
+
+    if paths.claude_session_dir.exists() {
+        let files = collect_files_with_dates(&paths.claude_session_dir, is_json_file)?;
+        let results = process_grouped_files(&files)?;
+        all_file_results.extend(results.into_iter().map(|(d, u)| (d, u, Provider::ClaudeCode)));
+    }
+
+    if paths.codex_session_dir.exists() {
+        let files = collect_files_with_dates(&paths.codex_session_dir, is_json_file)?;
+        let results = process_grouped_files(&files)?;
+        all_file_results.extend(results.into_iter().map(|(d, u)| (d, u, Provider::Codex)));
+    }
+
+    if paths.copilot_session_dir.exists() {
+        let files = collect_files_with_dates(&paths.copilot_session_dir, is_json_file)?;
+        let results = process_grouped_files(&files)?;
+        all_file_results.extend(results.into_iter().map(|(d, u)| (d, u, Provider::Copilot)));
+    }
+
+    if paths.gemini_session_dir.exists() {
+        let files = collect_files_with_dates(&paths.gemini_session_dir, is_gemini_chat_file)?;
+        let results = process_grouped_files(&files)?;
+        all_file_results.extend(results.into_iter().map(|(d, u)| (d, u, Provider::Gemini)));
+    }
+
+    // Group by period key, tracking provider active days per period
+    let mut period_models: FastHashMap<String, UsageResult> = FastHashMap::default();
+    let mut period_provider_days: FastHashMap<String, PeriodProviderDays> = FastHashMap::default();
+
+    for (date, conversation_usage, provider) in all_file_results {
+        let period_key = to_period_key(&date, mode);
+
+        let period_entry = period_models.entry(period_key.clone()).or_default();
+        let provider_days = period_provider_days.entry(period_key).or_default();
+
+        // Track which original dates this provider was active in this period
+        match provider {
+            Provider::ClaudeCode => {
+                provider_days.claude.insert(date);
+            }
+            Provider::Codex => {
+                provider_days.codex.insert(date);
+            }
+            Provider::Copilot => {
+                provider_days.copilot.insert(date);
+            }
+            Provider::Gemini => {
+                provider_days.gemini.insert(date);
+            }
+            Provider::Unknown => {}
+        }
+
+        for (model, usage_value) in conversation_usage {
+            period_entry
+                .entry(model)
+                .and_modify(|existing| merge_usage_values(existing, &usage_value))
+                .or_insert(usage_value);
+        }
+    }
+
+    // Sort periods chronologically
+    let mut periods: Vec<PeriodUsage> = period_models
+        .into_iter()
+        .map(|(period_key, models)| {
+            let provider_days = period_provider_days.remove(&period_key).unwrap_or_default();
+            PeriodUsage {
+                period_key,
+                models,
+                provider_days,
+            }
+        })
+        .collect();
+
+    periods.sort_by(|a, b| a.period_key.cmp(&b.period_key));
+
+    Ok(GroupedUsageData {
+        periods,
+        grouping_mode: mode,
+    })
+}
+
+fn process_grouped_files(
+    files: &[crate::utils::directory::FileInfo],
+) -> Result<Vec<(String, FastHashMap<String, Value>)>> {
+    let results: Vec<(String, FastHashMap<String, Value>)> = files
+        .par_iter()
+        .filter_map(|file_info| {
+            match global_cache().get_or_parse(&file_info.path) {
+                Ok(analysis_arc) => {
+                    let conversation_usage =
+                        extract_conversation_usage_from_analysis(&analysis_arc);
+                    Some((file_info.modified_date.clone(), conversation_usage))
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to analyze {}: {}",
+                        file_info.path.display(),
+                        e
+                    );
+                    None
+                }
+            }
+        })
+        .collect();
+
+    Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_date_to_iso_week_regular() {
+        // 2025-01-06 is a Monday in ISO week 2025-W02
+        assert_eq!(date_to_iso_week("2025-01-06"), "2025-W02");
+    }
+
+    #[test]
+    fn test_date_to_iso_week_year_boundary() {
+        // 2024-12-30 is a Monday, belongs to ISO week 2025-W01
+        assert_eq!(date_to_iso_week("2024-12-30"), "2025-W01");
+    }
+
+    #[test]
+    fn test_date_to_iso_week_midweek() {
+        // 2025-03-12 is a Wednesday in ISO week 2025-W11
+        assert_eq!(date_to_iso_week("2025-03-12"), "2025-W11");
+    }
+
+    #[test]
+    fn test_to_period_key_daily() {
+        assert_eq!(to_period_key("2025-03-15", GroupingMode::Daily), "2025-03-15");
+    }
+
+    #[test]
+    fn test_to_period_key_weekly() {
+        let result = to_period_key("2025-03-12", GroupingMode::Weekly);
+        assert!(result.starts_with("2025-W"), "Expected ISO week format, got: {}", result);
+    }
+
+    #[test]
+    fn test_date_to_iso_week_invalid_input() {
+        // Invalid date should return the input unchanged
+        assert_eq!(date_to_iso_week("not-a-date"), "not-a-date");
     }
 }

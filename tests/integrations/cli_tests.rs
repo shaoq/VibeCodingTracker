@@ -393,3 +393,168 @@ fn test_cli_handles_spaces_in_paths() {
         cmd.assert().success();
     }
 }
+
+#[test]
+fn test_usage_days_flag_conflicts_with_weekly() {
+    // --days and --weekly are mutually exclusive
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage")
+        .arg("--table")
+        .arg("--days")
+        .arg("--weekly");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
+fn test_usage_days_table_output() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--table").arg("--days");
+
+    // Should succeed and show daily grouped output
+    cmd.assert().success();
+}
+
+#[test]
+fn test_usage_weekly_table_output() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--table").arg("--weekly");
+
+    // Should succeed and show weekly grouped output
+    cmd.assert().success();
+}
+
+#[test]
+fn test_usage_days_json_output() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--json").arg("--days");
+
+    let output = cmd.output().unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+            // JSON should be an array of period objects
+            assert!(json.is_array(), "Grouped JSON output should be an array");
+
+            for period in json.as_array().unwrap() {
+                // Each period should have "period" and "models" keys
+                assert!(period.get("period").is_some(), "Period should have 'period' key");
+                assert!(period.get("models").is_some(), "Period should have 'models' key");
+            }
+        }
+    }
+}
+
+#[test]
+fn test_usage_weekly_json_output() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--json").arg("--weekly");
+
+    let output = cmd.output().unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+            // JSON should be an array of period objects
+            assert!(json.is_array(), "Grouped JSON output should be an array");
+
+            for period in json.as_array().unwrap() {
+                let period_key = period["period"].as_str().unwrap_or("");
+                // Weekly keys should match YYYY-Www format
+                assert!(
+                    period_key.contains("-W"),
+                    "Weekly period key should contain '-W', got: {}",
+                    period_key
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn test_usage_help_shows_grouping_flags() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--help");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("--days"))
+        .stdout(predicate::str::contains("--weekly"));
+}
+
+#[test]
+fn test_usage_days_table_is_single_flattened_table() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--table").arg("--days");
+
+    let output = cmd.output().unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            // The output should contain a "Period" column header (single flattened table)
+            assert!(
+                stdout.contains("Period"),
+                "Grouped table should have 'Period' column header, got:\n{}",
+                stdout
+            );
+
+            // Count table header rows (lines that contain "Period" as a column header).
+            // The comfy-table header uses `┆` separators between cells.
+            // A flattened table has exactly 2 table headers: main + summary.
+            // The old per-period approach would emit many more header rows.
+            let header_rows: Vec<&str> = stdout
+                .lines()
+                .filter(|line| line.contains(" Period ") && (line.contains('┆') || line.contains('│')))
+                .collect();
+
+            assert!(
+                header_rows.len() == 2,
+                "Flattened grouped table should have exactly 2 'Period' header rows (main + summary), found {}: {}",
+                header_rows.len(),
+                header_rows.join("\n")
+            );
+        }
+    }
+}
+
+#[test]
+fn test_usage_weekly_table_is_single_flattened_table() {
+    let mut cmd = Command::cargo_bin("vibe_coding_tracker").unwrap();
+    cmd.arg("usage").arg("--table").arg("--weekly");
+
+    let output = cmd.output().unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            // The output should contain a "Period" column header (single flattened table)
+            assert!(
+                stdout.contains("Period"),
+                "Grouped table should have 'Period' column header, got:\n{}",
+                stdout
+            );
+
+            // The provider summary table should contain "Daily Averages (by Provider)"
+            assert!(
+                stdout.contains("Daily Averages (by Provider)"),
+                "Grouped output should contain provider summary table, got:\n{}",
+                stdout
+            );
+
+            // The provider summary should have a "Provider" column
+            assert!(
+                stdout.contains("Provider"),
+                "Grouped output should have 'Provider' column header, got:\n{}",
+                stdout
+            );
+        }
+    }
+}

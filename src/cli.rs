@@ -44,6 +44,14 @@ pub enum Commands {
         /// Output as static table
         #[arg(long)]
         table: bool,
+
+        /// Group usage by day (based on session file modification time)
+        #[arg(long, conflicts_with = "weekly")]
+        days: bool,
+
+        /// Group usage by ISO week (based on session file modification time)
+        #[arg(long, conflicts_with = "days")]
+        weekly: bool,
     },
 
     /// Display version information

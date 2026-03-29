@@ -14,7 +14,10 @@ use vibe_coding_tracker::display::usage::{
 };
 use vibe_coding_tracker::models::UsageResult;
 use vibe_coding_tracker::pricing::{ModelPricingMap, calculate_cost, fetch_model_pricing};
-use vibe_coding_tracker::usage::get_usage_from_directories;
+use vibe_coding_tracker::usage::{
+    GroupedUsageData, GroupingMode, get_grouped_usage_from_directories,
+    get_usage_from_directories,
+};
 use vibe_coding_tracker::utils::extract_token_counts;
 use vibe_coding_tracker::{analyze_jsonl_file, get_version_info};
 
@@ -81,11 +84,51 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Usage { json, text, table } => {
+        Commands::Usage {
+            json,
+            text,
+            table,
+            days,
+            weekly,
+        } => {
+            let grouping = if days {
+                Some(GroupingMode::Daily)
+            } else if weekly {
+                Some(GroupingMode::Weekly)
+            } else {
+                None
+            };
+
             if json || text || table {
                 let usage_data = get_usage_from_directories()?;
 
-                if json {
+                if let Some(mode) = grouping {
+                    // Grouped output path
+                    let grouped = get_grouped_usage_from_directories(mode)?;
+
+                    if json {
+                        let pricing_map = match fetch_model_pricing() {
+                            Ok(map) => map,
+                            Err(e) => {
+                                eprintln!(
+                                    "Warning: Failed to fetch pricing data: {}. Costs will be unavailable.",
+                                    e
+                                );
+                                ModelPricingMap::new(HashMap::new())
+                            }
+                        };
+                        let enriched =
+                            build_enriched_grouped_json(&grouped, &pricing_map)?;
+                        let json_str = serde_json::to_string_pretty(&enriched)?;
+                        println!("{}", json_str);
+                    } else if text {
+                        display_usage_text(&usage_data.models, &usage_data.provider_days);
+                    } else {
+                        vibe_coding_tracker::display::usage::display_grouped_usage_table(
+                            &grouped,
+                        );
+                    }
+                } else if json {
                     let pricing_map = match fetch_model_pricing() {
                         Ok(map) => map,
                         Err(e) => {
@@ -205,4 +248,48 @@ fn build_enriched_json(
     }
 
     Ok(enriched_data)
+}
+
+fn build_enriched_grouped_json(
+    grouped: &GroupedUsageData,
+    pricing_map: &ModelPricingMap,
+) -> Result<Vec<Value>> {
+    let mut result = Vec::with_capacity(grouped.periods.len());
+
+    for period in &grouped.periods {
+        let mut models = Vec::with_capacity(period.models.len());
+
+        for (model, usage) in &period.models {
+            let counts = extract_token_counts(usage);
+
+            let pricing_result = pricing_map.get(model);
+
+            let cost = calculate_cost(
+                counts.input_tokens,
+                counts.output_tokens,
+                counts.cache_read,
+                counts.cache_creation,
+                &pricing_result.pricing,
+            );
+
+            let mut entry = json!({
+                "model": model,
+                "usage": usage,
+                "cost_usd": cost
+            });
+
+            if let Some(matched) = &pricing_result.matched_model {
+                entry["matched_model"] = json!(matched);
+            }
+
+            models.push(entry);
+        }
+
+        result.push(json!({
+            "period": period.period_key,
+            "models": models,
+        }));
+    }
+
+    Ok(result)
 }
